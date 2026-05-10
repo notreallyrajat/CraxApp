@@ -1,0 +1,210 @@
+import { Drawer } from 'expo-router/drawer';
+import { Ionicons } from '@expo/vector-icons';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
+import { supabase } from '../../lib/supabase';
+import { useRouter } from 'expo-router';
+
+function CustomDrawerContent(props: any) {
+  const router = useRouter();
+
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Logout", style: "destructive", onPress: async () => {
+        await supabase.auth.signOut();
+        router.replace('/login');
+      }}
+    ]);
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      <DrawerContentScrollView {...props}>
+        <View style={styles.drawerHeader}>
+          <View style={styles.logoCircle}>
+            <Ionicons name="school" size={30} color="#fff" />
+          </View>
+          <Text style={styles.drawerTitle}>Teacher Portal</Text>
+        </View>
+        <DrawerItemList {...props} />
+      </DrawerContentScrollView>
+      <TouchableOpacity style={styles.logoutItem} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={22} color="#F44336" />
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+export default function TeacherLayout() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Drawer
+        drawerContent={(props) => <CustomDrawerContent {...props} />}
+        screenOptions={{
+          headerShown: false,
+          drawerActiveTintColor: '#1a1d2e',
+          drawerInactiveTintColor: '#8E8E93',
+          drawerActiveBackgroundColor: '#f0f0f5',
+          drawerStyle: {
+            backgroundColor: '#FFFFFF',
+            width: 280,
+          },
+          drawerLabelStyle: {
+            fontSize: 15,
+            fontWeight: '700',
+            marginLeft: -10,
+          },
+        }}
+      >
+        <Drawer.Screen
+          name="index"
+          options={{
+            drawerLabel: 'Dashboard',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="home" size={22} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
+          name="timetable"
+          options={{
+            drawerLabel: 'My Schedule',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="calendar" size={22} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
+          name="attendance"
+          options={{
+            drawerLabel: 'Attendance',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="calendar" size={22} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
+          name="marks"
+          options={{
+            drawerLabel: 'Marks & Exams',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="trophy" size={22} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
+          name="documents"
+          options={{
+            drawerLabel: 'My Documents',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="folder" size={22} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
+          name="records"
+          options={{
+            drawerLabel: 'Personal Records',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="shield-checkmark" size={22} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
+          name="announcements"
+          options={{
+            drawerLabel: 'Announcements',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="megaphone" size={22} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
+          name="assignments"
+          options={{
+            drawerLabel: 'Assignments',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="clipboard" size={22} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
+          name="chat/index"
+          options={{
+            drawerLabel: 'Student Chats',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="chatbubbles" size={22} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
+          name="allotment"
+          options={{
+            drawerLabel: 'AI Allotment',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="grid" size={22} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
+          name="gps"
+          options={{
+            drawerLabel: 'Bus Tracking',
+            drawerIcon: ({ color, size }) => (
+              <Ionicons name="bus" size={22} color={color} />
+            ),
+          }}
+        />
+        <Drawer.Screen
+          name="chat/[id]"
+          options={{
+            drawerItemStyle: { display: 'none' },
+            headerShown: false,
+          }}
+        />
+      </Drawer>
+    </GestureHandlerRootView>
+  );
+}
+
+const styles = StyleSheet.create({
+  drawerHeader: {
+    padding: 20,
+    paddingTop: 30,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f5',
+    marginBottom: 10,
+  },
+  logoCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    backgroundColor: '#1a1d2e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  drawerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1a1d2e',
+  },
+  logoutItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    paddingBottom: 40,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f5',
+    gap: 15,
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#F44336',
+  },
+});

@@ -31,10 +31,29 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# credentials
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+credentials.json
 
 # typescript
 *.tsbuildinfo
+
+# temporary
+scratch/
+.gemini/
+antigravity/
 
 app-example
 

@@ -1,50 +1,67 @@
-# Welcome to your Expo app 👋
+# CraxNet Mobile: Advanced School Management Ecosystem
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+CraxNet is a high-performance, data-driven mobile application built for modern educational institutions. It provides a unified ecosystem for Administrators, Teachers, and Students to manage academic performance, institutional resources, and daily logistics with a premium, user-centric interface.
 
-## Get started
+## 🚀 Key Features
 
-1. Install dependencies
+### 🏛 Admin Command Center
+- **Institutional Analytics**: High-level "God Statistics" covering attendance, enrollment, and live classroom activity.
+- **Academic Momentum Engine**: Deep-dive student performance tracker with class-level drill-downs and trend analysis.
+- **Management Suite**: Categorized controls for classes, teachers, student directory, and institutional resources.
 
-   ```bash
-   npm install
-   ```
+### 🍎 Teacher Portal
+- **Mark & Exam Management**: Digital entry for results with automated GPA calculations.
+- **Attendance Tracking**: Real-time roll calls and session management.
+- **Collaborative Hub**: Secure communication logs and shared resource distribution.
 
-2. Start the app
+### 🎓 Student Experience
+- **Performance Profile**: Visualized academic trends, mark history, and attendance records.
+- **Resource Access**: Digital library and document management system.
+- **Commute Tracking**: Real-time integration for school transportation (Roadmapped).
 
-   ```bash
-   npx expo start
-   ```
+## 🛠 Tech Stack
 
-In the output, you'll find options to open the app in a
+- **Core Framework**: [Expo](https://expo.dev/) (SDK 50+) with [React Native](https://reactnative.dev/).
+- **Navigation**: [Expo Router](https://docs.expo.dev/router/introduction/) (v3) using Stack and Drawer (categorized) patterns.
+- **Backend & Database**: [Supabase](https://supabase.com/) (PostgreSQL) with Row Level Security (RLS).
+- **Authentication**: Supabase Auth with persistent session management via `expo-secure-store`.
+- **Styling**: Vanilla React Native StyleSheet with modern design principles (Glassmorphism, 3D Isometric assets).
+- **State Management**: React Hooks (useState, useEffect) with real-time Supabase subscriptions.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 📁 Project Structure
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```text
+├── app/                  # Expo Router directory (File-based routing)
+│   ├── (admin)/          # Administrative portal modules
+│   ├── (teacher)/        # Educator-specific interfaces
+│   ├── (student)/        # Student performance & resource modules
+│   └── index.tsx         # Unified Entry & Role-based redirection
+├── assets/               # 3D Illustrations, icons, and branding
+├── components/           # Reusable UI components (Analytics, ComingSoon, etc.)
+├── lib/                  # Core services and configuration
+│   ├── services/         # Data fetching (Stats, Exams, Teachers, etc.)
+│   └── supabase.ts       # Supabase client initialization
+└── constants/            # Global theme and styling tokens
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## ⚙️ Prerequisites & Setup
 
-## Learn more
+1. **Node.js**: Version 18.x or higher.
+2. **Expo CLI**: Installed globally (`npm install -g expo-cli`).
+3. **Environment Variables**: Create a `.env` file in the root with the following keys:
+   ```env
+   EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+4. **Dependencies**: Run `npm install` to set up the environment.
+5. **Start Dev Server**: Run `npx expo start` to launch the Metro Bundler.
 
-To learn more about developing your project with Expo, look at the following resources:
+## 🛣 Future Roadmap
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+The application includes high-fidelity, animated placeholders for the following upcoming modules:
+- **🤖 AI Allotment**: Intelligent automated timetable and classroom orchestration.
+- **🚌 Live Bus GPS**: Real-time coordinate tracking and ETA notifications.
+- **💳 Online Fee Gateway**: Integrated digital payments and paperless history.
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+*Developed with a focus on data integrity, visual excellence, and institutional scalability.*
