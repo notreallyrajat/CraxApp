@@ -151,7 +151,7 @@ export default function StudentsScreen() {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 10000);
 
-      const response = await fetch(`${Config.BACKEND_URL}/api/users`, {
+      const response = await fetch(`${Config.SUPABASE_FUNCTIONS_URL}/manage-users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,

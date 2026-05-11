@@ -14,4 +14,5 @@ const DEV_BACKEND_URL = Platform.select({
 
 export const Config = {
   BACKEND_URL: process.env.EXPO_PUBLIC_API_URL || DEV_BACKEND_URL,
+  SUPABASE_FUNCTIONS_URL: 'https://rfqspaxpycpxqhakuhup.supabase.co/functions/v1',
 };

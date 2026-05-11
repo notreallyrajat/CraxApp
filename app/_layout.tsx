@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { View, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -11,11 +12,13 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
+    // 1. Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setIsLoading(false);
     });
 
+    // 2. Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
@@ -26,24 +29,20 @@ export default function RootLayout() {
   useEffect(() => {
     if (isLoading) return;
 
-    // Check if we're in the (auth) group or on the login page directly
+    const inAuthGroup = segments[0] === '(auth)';
     const isLoginPage = segments[0] === 'login';
     
-    if (!session && !isLoginPage) {
-      // Not logged in, and trying to access a protected screen
+    if (!session && !isLoginPage && !inAuthGroup) {
+      // Redirect to login if not authenticated
       router.replace('/login');
-    } else if (session && isLoginPage) {
-      // Logged in, but stuck on login page -> check role and redirect
-      checkRoleAndRedirect(session.user.id);
-    } else if (session && segments.length === 0) {
-      // Logged in, and at the root `/` -> check role and redirect
+    } else if (session && (isLoginPage || segments.length === 0)) {
+      // Redirect to appropriate dashboard if already logged in
       checkRoleAndRedirect(session.user.id);
     }
   }, [session, isLoading, segments]);
 
   const checkRoleAndRedirect = async (userId: string) => {
     try {
-      // Find the profile using auth_user_id
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
@@ -51,12 +50,10 @@ export default function RootLayout() {
         .single();
 
       if (profileError || !profile) {
-        console.error("Profile not found:", profileError);
         router.replace('/login');
         return;
       }
 
-      // Find the role using profile_id
       const { data: roleRow, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
@@ -64,19 +61,17 @@ export default function RootLayout() {
         .single();
 
       if (roleError || !roleRow) {
-        console.error("Role not found:", roleError);
         router.replace('/login');
         return;
       }
 
       const role = roleRow.role;
-
       if (role === 'admin') router.replace('/(admin)');
       else if (role === 'teacher') router.replace('/(teacher)');
       else if (role === 'student') router.replace('/(student)');
-      else router.replace('/login'); // Fallback
+      else router.replace('/login');
     } catch (e) {
-      console.error("Error fetching role", e);
+      console.error("Navigation error:", e);
       router.replace('/login');
     }
   };
@@ -89,5 +84,9 @@ export default function RootLayout() {
     );
   }
 
-  return <Slot />;
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Slot />
+    </GestureHandlerRootView>
+  );
 }
