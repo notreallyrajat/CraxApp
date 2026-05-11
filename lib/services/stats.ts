@@ -1,20 +1,22 @@
 import { supabase } from '../supabase';
+import { calculateAttendanceRate, calculateGPA } from '../utils/calculations';
 
 export async function getAdminStats() {
   const today = new Date().toISOString().split('T')[0];
 
-  const [students, teachers, classes, announcements, attendance] = await Promise.all([
+  const [students, teachers, classes, announcements, attendance, attendancePresent] = await Promise.all([
     supabase.from('students').select('id', { count: 'exact', head: true }),
     supabase.from('teachers').select('id', { count: 'exact', head: true }),
     supabase.from('classes').select('id', { count: 'exact', head: true }),
     supabase.from('announcements').select('id', { count: 'exact', head: true }).eq('status', 'approved'),
-    supabase.from('attendance_records').select('status') // Removed date filter for global avg or we can add session join
+    supabase.from('attendance_records').select('status', { count: 'exact' }),
+    supabase.from('attendance_records').select('status', { count: 'exact' }).eq('status', 'present')
   ]);
 
   // Calculate overall attendance %
-  const totalMarked = attendance.data?.length || 0;
-  const presentCount = attendance.data?.filter(a => a.status === 'present').length || 0;
-  const attendanceRate = totalMarked > 0 ? Math.round((presentCount / totalMarked) * 100) : 0;
+  const totalMarked = attendance.count || 0;
+  const presentCount = attendancePresent.count || 0;
+  const attendanceRate = calculateAttendanceRate(totalMarked, presentCount);
 
   return {
     totalStudents: students.count || 0,
@@ -45,7 +47,7 @@ export async function getTeacherStats(teacherId: string) {
 
   const totalMarked = attendance?.length || 0;
   const presentCount = attendance?.filter(a => a.status === 'present').length || 0;
-  const attendanceRate = totalMarked > 0 ? Math.round((presentCount / totalMarked) * 100) : 0;
+  const attendanceRate = calculateAttendanceRate(totalMarked, presentCount);
 
   // 3. Get total students taught
   const { count: studentCount } = await supabase
@@ -70,7 +72,7 @@ export async function getStudentStats(studentId: string, classId: string) {
 
   const totalMarked = attendance?.length || 0;
   const presentCount = attendance?.filter(a => a.status === 'present').length || 0;
-  const attendanceRate = totalMarked > 0 ? Math.round((presentCount / totalMarked) * 100) : 0;
+  const attendanceRate = calculateAttendanceRate(totalMarked, presentCount);
 
   // 2. Get total subjects in their class
   const { count: subjectCount } = await supabase
@@ -84,15 +86,12 @@ export async function getStudentStats(studentId: string, classId: string) {
     .select('marks_obtained, exam_subjects(total_marks)')
     .eq('student_id', studentId);
 
-  let gpa = 0;
-  if (results && results.length > 0) {
-    const totalPct = results.reduce((acc, r) => {
-       const obtained = parseFloat(r.marks_obtained);
-       const total = parseFloat(r.exam_subjects?.total_marks || "100");
-       return acc + (obtained / (total || 100));
-    }, 0);
-    gpa = parseFloat(((totalPct / results.length) * 4).toFixed(2)); // Scale to 4.0
-  }
+  const formattedResults = results?.map(r => ({
+    marks_obtained: r.marks_obtained,
+    total_marks: r.exam_subjects?.total_marks
+  })) || [];
+  
+  const gpa = calculateGPA(formattedResults);
 
   return {
     attendanceRate,

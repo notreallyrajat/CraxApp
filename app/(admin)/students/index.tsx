@@ -91,13 +91,13 @@ export default function StudentsScreen() {
 
   const PAGE_SIZE = 15;
 
-  const loadStudents = async (pageNum = 0, isRefreshing = false) => {
+  const loadStudents = async (pageNum = 0, isRefreshing = false, query = searchQuery) => {
     if (isRefreshing) setRefreshing(true);
     else if (pageNum > 0) setLoadingMore(true);
     else setLoading(true);
 
     try {
-      const { data, error } = await getStudents(pageNum, PAGE_SIZE);
+      const { data, error } = await getStudents(pageNum, PAGE_SIZE, query);
       if (!error && data) {
         const studentData = data as unknown as Student[];
         if (isRefreshing || pageNum === 0) {
@@ -123,22 +123,26 @@ export default function StudentsScreen() {
 
   const handleRefresh = React.useCallback(() => {
     loadStudents(0, true);
-  }, []);
+  }, [searchQuery]);
 
   const handleLoadMore = React.useCallback(() => {
-    if (!loadingMore && hasMore && searchQuery === '') {
+    if (!loadingMore && hasMore) {
       loadStudents(page + 1);
     }
   }, [loadingMore, hasMore, page, searchQuery]);
 
-  const filteredStudents = React.useMemo(() => {
-    if (searchQuery.trim() === '') return students;
-    return students.filter(s => 
-      s.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.admission_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.profiles?.email?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery, students]);
+  // Debounced search
+  useEffect(() => {
+    if (page === 0 && searchQuery === '') return; // Skip initial mount as it's handled by useEffect above
+    
+    const delayDebounceFn = setTimeout(() => {
+      loadStudents(0, true);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  // Client-side filtering removed for server-side scalability
 
   const handleCreate = async () => {
     if (!form.fullName.trim() || !form.email.trim() || !form.admissionNo.trim() || !form.password.trim()) {
@@ -246,14 +250,14 @@ export default function StudentsScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0047AB" />
         </View>
-      ) : filteredStudents.length === 0 ? (
+      ) : students.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="people-outline" size={64} color="#D1D5DB" />
           <Text style={styles.emptyText}>No students found.</Text>
         </View>
       ) : (
         <FlatList
-          data={filteredStudents}
+          data={students}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           renderItem={renderStudentItem}

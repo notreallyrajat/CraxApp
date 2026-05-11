@@ -63,3 +63,7 @@ app-example
 
 # supabase
 supabase/.temp/
+
+# testing
+coverage/
+*.log

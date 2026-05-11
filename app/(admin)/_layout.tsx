@@ -75,7 +75,22 @@ function CustomAdminDrawer(props: any) {
   );
 }
 
+import { useRoleGuard } from '../../hooks/use-role-guard';
+import { ActivityIndicator } from 'react-native';
+
 export default function AdminLayout() {
+  const { isAuthorized } = useRoleGuard('admin');
+
+  if (isAuthorized === null) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
+        <ActivityIndicator size="large" color="#0047AB" />
+      </View>
+    );
+  }
+
+  if (isAuthorized === false) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer

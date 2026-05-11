@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { autoGrade } from '../utils/calculations';
 
 export type ExamSubjectEntry = {
   id: string;
@@ -161,18 +162,9 @@ export async function getResultsForExamSubject(examSubjectId: string) {
     .eq("exam_subject_id", examSubjectId);
 }
 
-export function autoGrade(marks: string, total: string | null): string {
-  const m = parseFloat(marks);
-  const t = parseFloat(total ?? "100");
-  if (isNaN(m) || isNaN(t) || t === 0) return "";
-  const pct = (m / t) * 100;
-  if (pct >= 90) return "A+";
-  if (pct >= 80) return "A";
-  if (pct >= 70) return "B";
-  if (pct >= 60) return "C";
-  if (pct >= 50) return "D";
-  return "F";
-}
+// Deprecated: use autoGrade from ../utils/calculations instead
+// Keeping for backward compatibility if needed, but internally uses the new utility
+export { autoGrade };
 
 export async function checkSubjectTeacher(teacherId: string, classId: string, subjectId: string) {
   const { data } = await supabase

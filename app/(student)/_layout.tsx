@@ -38,7 +38,22 @@ function CustomDrawerContent(props: any) {
   );
 }
 
+import { useRoleGuard } from '../../hooks/use-role-guard';
+import { ActivityIndicator } from 'react-native';
+
 export default function StudentLayout() {
+  const { isAuthorized } = useRoleGuard('student');
+
+  if (isAuthorized === null) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
+        <ActivityIndicator size="large" color="#1a1d2e" />
+      </View>
+    );
+  }
+
+  if (isAuthorized === false) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer

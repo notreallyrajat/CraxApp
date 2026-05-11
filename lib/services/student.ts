@@ -1,23 +1,30 @@
 import { supabase } from '../supabase';
 
-export async function getStudents(page = 0, pageSize = 20) {
+export async function getStudents(page = 0, pageSize = 20, searchQuery?: string) {
   const from = page * pageSize;
   const to = from + pageSize - 1;
 
-  return supabase
+  let query = supabase
     .from('students')
     .select(`
       id,
       admission_no,
       date_of_birth,
       created_at,
-      profiles (
+      profiles!inner (
         id,
         full_name,
         email,
         phone
       )
-    `)
+    `);
+
+  if (searchQuery) {
+    // Search in full_name or admission_no
+    query = query.or(`admission_no.ilike.%${searchQuery}%,profiles.full_name.ilike.%${searchQuery}%`);
+  }
+
+  return query
     .order('created_at', { ascending: false })
     .range(from, to);
 }
