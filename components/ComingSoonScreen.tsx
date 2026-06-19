@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, Animated, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, Image, Animated, Dimensions, Platform, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
@@ -23,6 +24,7 @@ const randomTexts = [
 export default function ComingSoonScreen({ title, description, images, featureName }: ComingSoonProps) {
   const [currentImage, setCurrentImage] = useState(images[0]);
   const [currentText, setCurrentText] = useState(randomTexts[0]);
+  const router = useRouter();
   const fadeAnim = useState(new Animated.Value(0))[0];
   const scaleAnim = useState(new Animated.Value(0.9))[0];
 
@@ -56,6 +58,10 @@ export default function ComingSoonScreen({ title, description, images, featureNa
           <View style={styles.overlay} />
         </View>
 
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+
         <View style={styles.textContainer}>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>COMING SOON</Text>
@@ -82,6 +88,18 @@ const styles = StyleSheet.create({
   content: { width: '100%', height: '100%', alignItems: 'center' },
   imageContainer: { width: '100%', height: '55%', position: 'relative' },
   image: { width: '100%', height: '100%' },
+  backBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? 40 : 50,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10
+  },
   overlay: { 
     position: 'absolute', 
     bottom: 0, 

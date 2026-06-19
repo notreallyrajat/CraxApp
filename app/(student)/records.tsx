@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { uploadUserDocument, getUserDocuments } from '../../lib/services/documents';
 
@@ -20,6 +21,7 @@ export default function StudentRecordsScreen() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     loadData();
@@ -88,8 +90,15 @@ export default function StudentRecordsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Digital Records</Text>
-        <Text style={styles.headerSub}>Upload and manage your e-documents</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>My Digital Records</Text>
+            <Text style={styles.headerSub}>Upload and manage your e-documents</Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView style={styles.content}>
@@ -155,6 +164,8 @@ const styles = StyleSheet.create({
     paddingBottom: 25, 
     paddingHorizontal: 20 
   },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  backBtn: { padding: 5 },
   headerTitle: { fontSize: 24, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
   content: { flex: 1, padding: 20 },

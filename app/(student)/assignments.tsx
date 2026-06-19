@@ -10,6 +10,7 @@ import {
   TouchableOpacity
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { getStudentProfile } from '../../lib/services/student';
 
@@ -17,6 +18,7 @@ export default function StudentAssignmentsScreen() {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const router = useRouter();
 
   const loadData = useCallback(async () => {
     try {
@@ -76,8 +78,15 @@ export default function StudentAssignmentsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Assignments</Text>
-        <Text style={styles.headerSub}>Homework & projects to complete</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>Assignments</Text>
+            <Text style={styles.headerSub}>Homework & projects to complete</Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView 
@@ -145,6 +154,8 @@ const styles = StyleSheet.create({
     paddingBottom: 25, 
     paddingHorizontal: 20 
   },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  backBtn: { padding: 5 },
   headerTitle: { fontSize: 24, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
   content: { flex: 1, padding: 20 },

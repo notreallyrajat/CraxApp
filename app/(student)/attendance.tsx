@@ -10,6 +10,7 @@ import {
   Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { getStudentProfile } from '../../lib/services/student';
 import { getStudentAttendanceRecords } from '../../lib/services/attendance';
@@ -19,6 +20,7 @@ export default function StudentAttendanceScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, holiday: 0, percent: 0 });
+  const router = useRouter();
 
   const loadData = useCallback(async () => {
     try {
@@ -77,8 +79,15 @@ export default function StudentAttendanceScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Attendance History</Text>
-        <Text style={styles.headerSub}>Track your presence over time</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>Attendance History</Text>
+            <Text style={styles.headerSub}>Track your presence over time</Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.statsPanel}>
@@ -152,6 +161,8 @@ const styles = StyleSheet.create({
     paddingBottom: 25, 
     paddingHorizontal: 20 
   },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  backBtn: { padding: 5 },
   headerTitle: { fontSize: 24, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
   statsPanel: { 
