@@ -92,7 +92,7 @@ export default function TeacherMarksScreen() {
     try {
       const [resultsRes, teacherCheck] = await Promise.all([
         getResultsForExamSubject(examSub.id),
-        checkSubjectTeacher(teacher.id, activeClass.class_id, examSub.subject_id)
+        checkSubjectTeacher(teacher.id, activeClass.class_id, examSub.subjects.id)
       ]);
       
       setCanEdit(teacherCheck);
