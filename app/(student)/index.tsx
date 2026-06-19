@@ -16,6 +16,7 @@ import { getStudentProfile } from '../../lib/services/student';
 import { getStudentResults } from '../../lib/services/exam';
 import { useRouter, useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
+import CraxLogoSvg from '../../components/CraxLogoSvg';
 
 export default function StudentDashboard() {
   const [student, setStudent] = useState<any>(null);
@@ -91,16 +92,20 @@ export default function StudentDashboard() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={styles.headerBackground}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
-            <Ionicons name="menu" size={28} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.logoContainer}>
+            <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={styles.menuButton}>
+              <Ionicons name="menu" size={26} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={{ width: 8 }} />
+            <CraxLogoSvg width={26} height={26} color="#FFFFFF" />
+            <Text style={styles.logoText}>CraxNet</Text>
+          </View>
         </View>
-        <View style={styles.welcomeSection}>
-          <Text style={styles.greeting}>{getGreeting()},</Text>
-          <Text style={styles.studentName}>{student?.full_name?.split(" ")[0]} 👋</Text>
-          <Text style={styles.admissionNo}>Admission No: {student?.admission_no}</Text>
+        <View style={styles.welcomeBox}>
+          <Text style={styles.welcomeText}>Hello, {student?.full_name?.split(" ")[0]}</Text>
+          <Text style={styles.dateText}>Admission No: {student?.admission_no}</Text>
         </View>
       </View>
 
@@ -171,25 +176,23 @@ export default function StudentDashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { 
+  headerBackground: { 
     backgroundColor: '#1a1d2e', 
-    paddingTop: Platform.OS === 'android' ? 20 : 15, 
-    paddingBottom: 35, 
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 35,
-    borderBottomRightRadius: 35,
+    paddingTop: Platform.OS === 'android' ? 40 : 50, 
+    paddingHorizontal: 20, 
+    paddingBottom: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30
   },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  profileBtn: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden' },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 15 },
-  avatarPlaceholder: { width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#fff', fontSize: 18, fontWeight: '800' },
-  welcomeSection: {},
-  greeting: { fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
-  studentName: { fontSize: 28, fontWeight: '800', color: '#fff', marginTop: 2 },
-  admissionNo: { fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: '700', marginTop: 4 },
-  content: { flex: 1, paddingHorizontal: 20 },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: -25, marginBottom: 15 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
+  logoContainer: { flexDirection: 'row', alignItems: 'center' },
+  menuButton: { padding: 4 },
+  logoText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', marginLeft: 8 },
+  welcomeBox: { marginTop: 5 },
+  welcomeText: { fontSize: 24, fontWeight: '800', color: '#fff' },
+  dateText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4, fontWeight: '600' },
+  content: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 15 },
   statCard: { width: '48%', backgroundColor: '#fff', borderRadius: 20, padding: 15, marginBottom: 15, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 },
   statIcon: { width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   statValue: { fontSize: 18, fontWeight: '800', color: '#1a1d2e' },
