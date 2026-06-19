@@ -18,11 +18,12 @@ import { supabase } from '../../lib/supabase';
 import { getAssignedClasses, getTeacherProfile } from '../../lib/services/teacher';
 import { 
   getSessionsForClass, 
-  createSession, 
+  getOrCreateSession, 
   getEnrolledStudents, 
   getRecordsForSession, 
   saveAllRecords 
 } from '../../lib/services/attendance';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 type AttendanceStatus = "present" | "absent" | "late" | "holiday";
 
@@ -39,6 +40,7 @@ export default function TeacherAttendanceScreen() {
   const [saving, setSaving] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -50,11 +52,12 @@ export default function TeacherAttendanceScreen() {
     if (profile?.teachers) {
       setTeacher(profile.teachers);
       const classesRes = await getAssignedClasses(profile.teachers.id);
-      setAssignedClasses(classesRes.data || []);
+      const classTeacherRoles = (classesRes.data || []).filter(c => c.is_class_teacher);
+      setAssignedClasses(classTeacherRoles);
       
       // Check if we came from dashboard with specific class
       if (params.classId) {
-        const target = (classesRes.data || []).find(c => c.class_id === params.classId);
+        const target = classTeacherRoles.find(c => c.class_id === params.classId);
         if (target) openClass(target);
       }
     }
@@ -78,11 +81,11 @@ export default function TeacherAttendanceScreen() {
     if (!activeClass) return;
     setSaving(true);
     try {
-      const { data, error } = await createSession({
-        classId: activeClass.class_id,
-        sectionId: activeClass.section_id,
+      const { data, error } = await getOrCreateSession(
+        activeClass.class_id,
+        activeClass.section_id,
         sessionDate
-      });
+      );
       if (error) throw error;
       setModalVisible(false);
       openClass(activeClass); // Refresh sessions
@@ -188,18 +191,26 @@ export default function TeacherAttendanceScreen() {
 
       {view === 'classes' && (
         <ScrollView style={styles.content}>
-          {assignedClasses.map(cls => (
-            <TouchableOpacity key={cls.id} style={styles.classCard} onPress={() => openClass(cls)}>
-              <View style={styles.classInfo}>
-                <Ionicons name="people-circle" size={40} color="#1a1d2e" />
-                <View>
-                  <Text style={styles.className}>{cls.classes.name}</Text>
-                  <Text style={styles.classSub}>{cls.sections ? `Section ${cls.sections.name}` : 'Whole Class'}</Text>
+          {assignedClasses.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="folder-open-outline" size={60} color="#cbd5e1" />
+              <Text style={styles.emptyTitle}>No Classes Allotted</Text>
+              <Text style={styles.emptySubtitle}>You are currently not designated as a Class Teacher for any section. Only Class Teachers can mark attendance.</Text>
+            </View>
+          ) : (
+            assignedClasses.map(cls => (
+              <TouchableOpacity key={cls.id} style={styles.classCard} onPress={() => openClass(cls)}>
+                <View style={styles.classInfo}>
+                  <Ionicons name="people-circle" size={40} color="#1a1d2e" />
+                  <View>
+                    <Text style={styles.className}>{cls.classes.name}</Text>
+                    <Text style={styles.classSub}>{cls.sections ? `Section ${cls.sections.name}` : 'Whole Class'}</Text>
+                  </View>
                 </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-            </TouchableOpacity>
-          ))}
+                <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
+              </TouchableOpacity>
+            ))
+          )}
         </ScrollView>
       )}
 
@@ -264,12 +275,23 @@ export default function TeacherAttendanceScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>New Session</Text>
             <Text style={styles.label}>Select Date</Text>
-            <TextInput 
-              style={styles.input} 
-              value={sessionDate} 
-              onChangeText={setSessionDate} 
-              placeholder="YYYY-MM-DD"
-            />
+            <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+              <Text style={{ color: '#1a1d2e', fontWeight: '600' }}>{sessionDate}</Text>
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={new Date(sessionDate)}
+                mode="date"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    setSessionDate(selectedDate.toISOString().split('T')[0]);
+                  }
+                }}
+              />
+            )}
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -328,5 +350,8 @@ const styles = StyleSheet.create({
   cancelBtn: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: '#F1F5F9', alignItems: 'center' },
   cancelBtnText: { fontWeight: '700', color: '#64748b' },
   createBtn: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: '#1a1d2e', alignItems: 'center' },
-  createBtnText: { fontWeight: '700', color: '#fff' }
+  createBtnText: { fontWeight: '700', color: '#fff' },
+  emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b', marginTop: 15 },
+  emptySubtitle: { fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 8, paddingHorizontal: 20, lineHeight: 20 }
 });

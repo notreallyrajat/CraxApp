@@ -49,6 +49,7 @@ export async function getAssignedClasses(teacherId: string) {
       class_id,
       section_id,
       subject_id,
+      is_class_teacher,
       classes ( id, name, code ),
       sections ( id, name ),
       subjects ( id, name, code )
