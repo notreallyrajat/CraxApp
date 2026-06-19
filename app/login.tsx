@@ -7,12 +7,15 @@ import {
   StyleSheet, 
   ActivityIndicator, 
   KeyboardAvoidingView, 
-  Platform 
+  Platform,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { logActivity } from '../lib/services/logger';
+
+import CraxLogoSvg from '../components/CraxLogoSvg';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -57,9 +60,9 @@ export default function LoginScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Ionicons name="school" size={20} color="#fff" />
+              <CraxLogoSvg width={20} height={20} color="#fff" />
             </View>
-            <Text style={styles.logoText}>SchoolMS</Text>
+            <Text style={styles.logoText}>CraxNet</Text>
           </View>
 
           <View style={styles.formContainer}>

@@ -5,6 +5,9 @@ import { DrawerActions } from '@react-navigation/native';
 import { supabase } from '../../../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { deleteClass } from '../../../lib/services/class';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import Papa from 'papaparse';
 
 type ClassItem = {
   id: string;
@@ -22,6 +25,9 @@ export default function ClassesScreen() {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [creating, setCreating] = useState(false);
+  const [uploadingCsv, setUploadingCsv] = useState(false);
+  const [previewData, setPreviewData] = useState<{name: string, code: string | null}[]>([]);
+  const [previewModalVisible, setPreviewModalVisible] = useState(false);
 
   const loadClasses = async () => {
     setLoading(true);
@@ -75,6 +81,104 @@ export default function ClassesScreen() {
         }
       ]
     );
+  };
+
+  const handleCsvUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'application/vnd.ms-excel', 'text/comma-separated-values', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      setUploadingCsv(true);
+      const fileUri = result.assets[0].uri;
+      
+      let fileData: any;
+      
+      // On Web, DocumentPicker returns a File object in the asset
+      if (result.assets[0].file) {
+        fileData = result.assets[0].file;
+      } else {
+        // On Native (iOS/Android), we use FileSystem to read the URI
+        fileData = await FileSystem.readAsStringAsync(fileUri, {
+          encoding: 'utf8' as any, // Using literal 'utf8' to prevent EncodingType undefined issues on web
+        });
+      }
+
+      Papa.parse(fileData, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const rows = results.data as any[];
+          
+          if (rows.length === 0) {
+            Alert.alert('Error', 'The CSV file is empty.');
+            setUploadingCsv(false);
+            return;
+          }
+
+          // Validate headers and format
+          const formattedRows = rows.map(row => ({
+            name: row['class name'] || row['name'] || row['Class Name'] || row['Name'] || row['class_name'],
+            code: row['class code'] || row['code'] || row['Class Code'] || row['Code'] || row['class_code'] || null
+          })).filter(row => row.name && String(row.name).trim() !== '');
+
+          if (formattedRows.length === 0) {
+            Alert.alert('Error', 'No valid classes found. Please ensure your CSV has a "class name" column.');
+            setUploadingCsv(false);
+            return;
+          }
+
+          // Show preview instead of direct insert
+          setPreviewData(formattedRows);
+          setPreviewModalVisible(true);
+          setUploadingCsv(false);
+        },
+        error: (error: any) => {
+          Alert.alert('Error parsing CSV', error.message);
+          setUploadingCsv(false);
+        }
+      });
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+      setUploadingCsv(false);
+    }
+  };
+
+  const confirmCsvUpload = async () => {
+    setUploadingCsv(true);
+    const validData = previewData.filter(item => item.name.trim() !== '');
+    
+    if (validData.length === 0) {
+      Alert.alert('Error', 'No valid classes to upload.');
+      setUploadingCsv(false);
+      return;
+    }
+
+    const { error } = await supabase.from('classes').upsert(validData, { 
+      onConflict: 'code',
+      ignoreDuplicates: true 
+    });
+    
+    if (error) {
+      Alert.alert('Upload Error', error.message);
+    } else {
+      Alert.alert('Success', `Successfully imported ${validData.length} classes.`);
+      setPreviewModalVisible(false);
+      setPreviewData([]);
+      loadClasses();
+    }
+    setUploadingCsv(false);
+  };
+
+  const updatePreviewItem = (index: number, field: 'name' | 'code', value: string) => {
+    const newData = [...previewData];
+    newData[index][field] = value;
+    setPreviewData(newData);
   };
 
   return (
@@ -147,9 +251,23 @@ export default function ClassesScreen() {
 
       {/* EdTech Royal Blue Bottom Button */}
       <View style={styles.bottomFixedContainer}>
-        <TouchableOpacity style={styles.primaryButton} onPress={() => setModalVisible(true)} activeOpacity={0.8}>
-          <Text style={styles.primaryButtonText}>Add New Class</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <TouchableOpacity 
+            style={[styles.primaryButton, { flex: 1, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#0047AB' }]} 
+            onPress={handleCsvUpload} 
+            disabled={uploadingCsv}
+            activeOpacity={0.8}
+          >
+            {uploadingCsv ? (
+              <ActivityIndicator size="small" color="#0047AB" />
+            ) : (
+              <Text style={[styles.primaryButtonText, { color: '#0047AB' }]}>Upload CSV</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.primaryButton, { flex: 1 }]} onPress={() => setModalVisible(true)} activeOpacity={0.8}>
+            <Text style={styles.primaryButtonText}>Add New Class</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Modal visible={modalVisible} animationType="slide" transparent>
@@ -186,6 +304,52 @@ export default function ClassesScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={[styles.primaryButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]} onPress={handleCreate} disabled={creating} activeOpacity={0.8}>
                 <Text style={styles.primaryButtonText}>{creating ? 'Saving...' : 'Create Class'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CSV Preview Modal */}
+      <Modal visible={previewModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { height: '80%' }]}>
+            <View style={styles.modalDragIndicator} />
+            <Text style={styles.modalTitle}>Review CSV Data</Text>
+            
+            <View style={styles.previewHeaderRow}>
+              <Text style={[styles.previewHeaderText, { flex: 2 }]}>Class Name</Text>
+              <Text style={[styles.previewHeaderText, { flex: 1 }]}>Class Code</Text>
+            </View>
+            
+            <FlatList
+              data={previewData}
+              keyExtractor={(_, index) => index.toString()}
+              style={{ flex: 1, marginBottom: 16 }}
+              renderItem={({ item, index }) => (
+                <View style={styles.previewRow}>
+                  <TextInput
+                    style={[styles.previewInput, { flex: 2, marginRight: 8 }]}
+                    value={item.name}
+                    onChangeText={(val) => updatePreviewItem(index, 'name', val)}
+                    placeholder="Class Name"
+                  />
+                  <TextInput
+                    style={[styles.previewInput, { flex: 1 }]}
+                    value={item.code || ''}
+                    onChangeText={(val) => updatePreviewItem(index, 'code', val)}
+                    placeholder="Class Code"
+                  />
+                </View>
+              )}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelTextButton} onPress={() => setPreviewModalVisible(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.primaryButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]} onPress={confirmCsvUpload} disabled={uploadingCsv} activeOpacity={0.8}>
+                <Text style={styles.primaryButtonText}>{uploadingCsv ? 'Uploading...' : 'Confirm Upload'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -322,4 +486,8 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
   cancelTextButton: { paddingVertical: 16, paddingHorizontal: 20, marginRight: 10 },
   cancelText: { color: '#8E8E93', fontWeight: '700', fontSize: 15 },
+  previewHeaderRow: { flexDirection: 'row', paddingHorizontal: 4, marginBottom: 8 },
+  previewHeaderText: { fontSize: 13, fontWeight: '700', color: '#8E8E93' },
+  previewRow: { flexDirection: 'row', marginBottom: 8 },
+  previewInput: { backgroundColor: '#F4F6F8', borderRadius: 8, padding: 12, fontSize: 14, color: '#1C1C1E', fontWeight: '500' },
 });

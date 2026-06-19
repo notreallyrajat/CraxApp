@@ -96,13 +96,6 @@ export default function StudentDashboard() {
           <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
             <Ionicons name="menu" size={28} color="#fff" />
           </TouchableOpacity>
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.profileBtn}>
-               <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarText}>{student?.full_name?.charAt(0)}</Text>
-               </View>
-            </TouchableOpacity>
-          </View>
         </View>
         <View style={styles.welcomeSection}>
           <Text style={styles.greeting}>{getGreeting()},</Text>

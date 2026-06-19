@@ -6,7 +6,10 @@ import { getClassById, getSections, createSection, deleteSection, getClassTeache
 import { getEnrollments, createEnrollment, deleteEnrollment, getTeacherAssignments, createTeacherAssignment, deleteTeacherAssignment } from '../../../lib/services/enrollment';
 import { getStudents } from '../../../lib/services/student';
 import { getTeachers } from '../../../lib/services/teacher';
-import { getSubjects } from '../../../lib/services/subject';
+import { getSubjects, createSubject, deleteSubject } from '../../../lib/services/subject';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import Papa from 'papaparse';
 
 type Section = { id: string; name: string };
 type Enrollment = {
@@ -44,18 +47,24 @@ export default function ClassDetailsScreen() {
 
   // Modals visibility
   const [sectionModalVisible, setSectionModalVisible] = useState(false);
+  const [subjectModalVisible, setSubjectModalVisible] = useState(false);
   const [enrollModalVisible, setEnrollModalVisible] = useState(false);
   const [assignModalVisible, setAssignModalVisible] = useState(false);
   const [ctModalVisible, setCtModalVisible] = useState(false);
+  const [previewSubjectModalVisible, setPreviewSubjectModalVisible] = useState(false);
 
-  // Form states
+  // Form & UI states
+  const [uploadingSubjectCsv, setUploadingSubjectCsv] = useState(false);
+  const [previewSubjectData, setPreviewSubjectData] = useState<any[]>([]);
   const [sectionName, setSectionName] = useState('');
+  const [subjectName, setSubjectName] = useState('');
+  const [subjectCode, setSubjectCode] = useState('');
   const [enrollStudentId, setEnrollStudentId] = useState('');
   const [enrollSectionId, setEnrollSectionId] = useState('');
   const [enrollRoll, setEnrollRoll] = useState('');
   const [assignTeacherId, setAssignTeacherId] = useState('');
   const [assignSectionId, setAssignSectionId] = useState('');
-  const [assignSubjectId, setAssignSubjectId] = useState('');
+  const [assignSubjectIds, setAssignSubjectIds] = useState<string[]>([]);
   const [ctTeacherId, setCtTeacherId] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -119,6 +128,124 @@ export default function ClassDetailsScreen() {
     ]);
   };
 
+  // ---- Subject Handlers ----
+  const handleAddSubject = async () => {
+    if (!subjectName.trim()) return;
+    setSaving(true);
+    const { error } = await createSubject({ name: subjectName.trim(), class_id: id, code: subjectCode.trim() || undefined });
+    setSaving(false);
+    if (error) Alert.alert('Error', error.message);
+    else {
+      setSubjectModalVisible(false);
+      setSubjectName('');
+      setSubjectCode('');
+      loadData();
+    }
+  };
+
+  const confirmDeleteSubject = (subjectId: string, sName: string) => {
+    Alert.alert("Delete Subject", `Are you sure you want to delete ${sName}?`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+          await deleteSubject(subjectId);
+          loadData();
+        }
+      }
+    ]);
+  };
+
+  const handleSubjectCsvUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'application/vnd.ms-excel', 'text/comma-separated-values', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      setUploadingSubjectCsv(true);
+      const fileUri = result.assets[0].uri;
+      let fileData: any;
+      if (result.assets[0].file) fileData = result.assets[0].file;
+      else fileData = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as any });
+
+      Papa.parse(fileData, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const rows = results.data as any[];
+          if (rows.length === 0) {
+            Alert.alert('Error', 'The CSV file is empty.');
+            setUploadingSubjectCsv(false);
+            return;
+          }
+
+          const formattedRows = rows.map(row => ({
+            name: row['subject name'] || row['name'] || row['Subject Name'] || row['Name'] || '',
+            code: row['subject code'] || row['code'] || row['Subject Code'] || row['Code'] || '',
+          })).filter(row => row.name);
+
+          if (formattedRows.length === 0) {
+            Alert.alert('Error', 'No valid subjects found. Ensure CSV has "Subject Name".');
+            setUploadingSubjectCsv(false);
+            return;
+          }
+
+          setPreviewSubjectData(formattedRows);
+          setPreviewSubjectModalVisible(true);
+          setUploadingSubjectCsv(false);
+        },
+        error: (error: any) => {
+          Alert.alert('Error parsing CSV', error.message);
+          setUploadingSubjectCsv(false);
+        }
+      });
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+      setUploadingSubjectCsv(false);
+    }
+  };
+
+  const confirmSubjectCsvUpload = async () => {
+    setUploadingSubjectCsv(true);
+    const validData = previewSubjectData.filter(item => item.name.trim() !== '');
+    
+    if (validData.length === 0) {
+      Alert.alert('Error', 'No valid subjects to upload.');
+      setUploadingSubjectCsv(false);
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const subject of validData) {
+      const { error } = await createSubject({
+        name: subject.name,
+        code: subject.code || undefined,
+        class_id: id,
+      });
+
+      if (!error) {
+        successCount++;
+      } else {
+        failCount++;
+      }
+    }
+    
+    Alert.alert('Upload Complete', `Successfully imported ${successCount} subjects. Failed: ${failCount}`);
+    setPreviewSubjectModalVisible(false);
+    setPreviewSubjectData([]);
+    loadData();
+    setUploadingSubjectCsv(false);
+  };
+
+  const updatePreviewSubjectItem = (index: number, field: string, value: string) => {
+    const newData = [...previewSubjectData];
+    newData[index][field] = value;
+    setPreviewSubjectData(newData);
+  };
+
   // ---- Enrollment Handlers ----
   const handleEnroll = async () => {
     if (!enrollStudentId) {
@@ -156,24 +283,34 @@ export default function ClassDetailsScreen() {
 
   // ---- Teacher Assignment Handlers ----
   const handleAssignTeacher = async () => {
-    if (!assignTeacherId || !assignSubjectId) {
-      Alert.alert('Error', 'Please select teacher and subject');
+    if (!assignTeacherId || assignSubjectIds.length === 0) {
+      Alert.alert('Error', 'Please select teacher and at least one subject');
       return;
     }
     setSaving(true);
-    const { error } = await createTeacherAssignment({
-      teacherId: assignTeacherId,
-      classId: id,
-      sectionId: assignSectionId || undefined,
-      subjectId: assignSubjectId || undefined,
-    });
+    let hasError = false;
+    let errorMessage = '';
+
+    for (const subjectId of assignSubjectIds) {
+      const { error } = await createTeacherAssignment({
+        teacherId: assignTeacherId,
+        classId: id,
+        sectionId: assignSectionId || undefined,
+        subjectId: subjectId,
+      });
+      if (error) {
+        hasError = true;
+        errorMessage = error.message;
+      }
+    }
+
     setSaving(false);
-    if (error) Alert.alert('Error', error.message);
+    if (hasError) Alert.alert('Error', errorMessage);
     else {
       setAssignModalVisible(false);
       setAssignTeacherId('');
       setAssignSectionId('');
-      setAssignSubjectId('');
+      setAssignSubjectIds([]);
       loadData();
     }
   };
@@ -234,18 +371,25 @@ export default function ClassDetailsScreen() {
     </View>
   );
 
-  const renderSectionHeader = (title: string, count: number, onAdd?: () => void, icon?: any) => (
+  const renderSectionHeader = (title: string, count: number, onAdd?: () => void, icon?: any, onUpload?: () => void) => (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionHeaderTitle}>
         {icon && <Ionicons name={icon} size={20} color="#0047AB" style={{ marginRight: 8 }} />}
         <Text style={styles.sectionTitle}>{title}</Text>
         <Text style={styles.sectionCount}>{count}</Text>
       </View>
-      {onAdd && (
-        <TouchableOpacity style={styles.addSmallButton} onPress={onAdd}>
-          <Ionicons name="add" size={20} color="#0047AB" />
-        </TouchableOpacity>
-      )}
+      <View style={{ flexDirection: 'row' }}>
+        {onUpload && (
+          <TouchableOpacity style={[styles.addSmallButton, { marginRight: 8 }]} onPress={onUpload}>
+            <Ionicons name="document-text-outline" size={20} color="#0047AB" />
+          </TouchableOpacity>
+        )}
+        {onAdd && (
+          <TouchableOpacity style={styles.addSmallButton} onPress={onAdd}>
+            <Ionicons name="add" size={20} color="#0047AB" />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 
@@ -274,6 +418,27 @@ export default function ClassDetailsScreen() {
                   <View key={s.id} style={styles.sectionPill}>
                     <Text style={styles.sectionPillText}>Section {s.name}</Text>
                     <TouchableOpacity onPress={() => confirmDeleteSection(s.id, s.name)}>
+                      <Ionicons name="close-circle" size={18} color="#FF3B30" style={{ marginLeft: 6 }} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+
+        {/* Subjects */}
+        <View style={styles.sectionContainer}>
+          {renderSectionHeader("Subjects", subjects.length, () => setSubjectModalVisible(true), "book-outline", handleSubjectCsvUpload)}
+          <View style={styles.horizontalScroll}>
+            {subjects.length === 0 ? (
+              <Text style={styles.emptyTextSmall}>No subjects yet.</Text>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {subjects.map(s => (
+                  <View key={s.id} style={styles.sectionPill}>
+                    <Text style={styles.sectionPillText}>{s.name} {s.code ? `(${s.code})` : ''}</Text>
+                    <TouchableOpacity onPress={() => confirmDeleteSubject(s.id, s.name)}>
                       <Ionicons name="close-circle" size={18} color="#FF3B30" style={{ marginLeft: 6 }} />
                     </TouchableOpacity>
                   </View>
@@ -381,46 +546,125 @@ export default function ClassDetailsScreen() {
         </View>
       </Modal>
 
-      {/* Enroll Student Modal */}
-      <Modal visible={enrollModalVisible} animationType="slide" transparent>
+      {/* Add Subject Modal */}
+      <Modal visible={subjectModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalDragIndicator} />
+            <Text style={styles.modalTitle}>New Subject</Text>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Subject Name *</Text>
+              <TextInput style={styles.input} placeholder="e.g. Mathematics" value={subjectName} onChangeText={setSubjectName} />
+            </View>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Subject Code (Optional)</Text>
+              <TextInput style={styles.input} placeholder="e.g. MATH101" value={subjectCode} onChangeText={setSubjectCode} autoCapitalize="characters" />
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setSubjectModalVisible(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.saveButton} onPress={handleAddSubject} disabled={saving}><Text style={styles.saveText}>{saving ? 'Saving...' : 'Add Subject'}</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CSV Subject Preview Modal */}
+      <Modal visible={previewSubjectModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { height: '85%' }]}>
+            <View style={styles.modalDragIndicator} />
+            <Text style={styles.modalTitle}>Review Subject Data</Text>
+            
+            <View style={styles.previewHeaderRow}>
+              <Text style={[styles.previewHeaderText, { flex: 2 }]}>Subject Name</Text>
+              <Text style={[styles.previewHeaderText, { flex: 1.5 }]}>Subject Code</Text>
+            </View>
+            
+            <FlatList
+              data={previewSubjectData}
+              keyExtractor={(_, index) => index.toString()}
+              style={{ flex: 1, marginBottom: 16 }}
+              renderItem={({ item, index }) => (
+                <View style={styles.previewRow}>
+                  <View style={{ flex: 2, marginRight: 8 }}>
+                    <TextInput
+                      style={styles.previewInput}
+                      value={item.name}
+                      onChangeText={(val) => updatePreviewSubjectItem(index, 'name', val)}
+                      placeholder="Subject Name"
+                    />
+                  </View>
+                  <View style={{ flex: 1.5 }}>
+                    <TextInput
+                      style={styles.previewInput}
+                      value={item.code}
+                      onChangeText={(val) => updatePreviewSubjectItem(index, 'code', val)}
+                      placeholder="Subject Code"
+                      autoCapitalize="characters"
+                    />
+                  </View>
+                </View>
+              )}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setPreviewSubjectModalVisible(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.saveButton, (uploadingSubjectCsv) && { opacity: 0.7 }]} 
+                onPress={confirmSubjectCsvUpload} 
+                disabled={uploadingSubjectCsv}
+              >
+                <Text style={styles.saveText}>{uploadingSubjectCsv ? 'Uploading...' : 'Confirm Upload'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Enroll Student Modal */}
+      <Modal visible={enrollModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+            <View style={styles.modalDragIndicator} />
             <Text style={styles.modalTitle}>Enroll Student</Text>
             
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Select Student</Text>
-              <View style={styles.pickerContainer}>
-                <ScrollView style={{ maxHeight: 150 }}>
-                  {students.map(s => (
-                    <TouchableOpacity key={s.id} style={[styles.pickerItem, enrollStudentId === s.id && styles.pickerItemSelected]} onPress={() => setEnrollStudentId(s.id)}>
-                      <Text style={[styles.pickerItemText, enrollStudentId === s.id && styles.pickerItemTextSelected]}>{s.profiles?.full_name} ({s.admission_no})</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Select Student</Text>
+                <View style={styles.pickerContainer}>
+                  <ScrollView nestedScrollEnabled style={{ maxHeight: 150 }}>
+                    {students.map(s => (
+                      <TouchableOpacity key={s.id} style={[styles.pickerItem, enrollStudentId === s.id && styles.pickerItemSelected]} onPress={() => setEnrollStudentId(s.id)}>
+                        <Text style={[styles.pickerItemText, enrollStudentId === s.id && styles.pickerItemTextSelected]}>{s.profiles?.full_name} ({s.admission_no})</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
-            </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Section (Optional)</Text>
-              <View style={styles.pickerContainer}>
-                <ScrollView horizontal>
-                  <TouchableOpacity style={[styles.sectionOption, !enrollSectionId && styles.sectionOptionSelected]} onPress={() => setEnrollSectionId('')}>
-                    <Text style={[styles.sectionOptionText, !enrollSectionId && styles.sectionOptionTextSelected]}>None</Text>
-                  </TouchableOpacity>
-                  {sections.map(s => (
-                    <TouchableOpacity key={s.id} style={[styles.sectionOption, enrollSectionId === s.id && styles.sectionOptionSelected]} onPress={() => setEnrollSectionId(s.id)}>
-                      <Text style={[styles.sectionOptionText, enrollSectionId === s.id && styles.sectionOptionTextSelected]}>{s.name}</Text>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Section (Optional)</Text>
+                <View style={styles.pickerContainer}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <TouchableOpacity style={[styles.sectionOption, !enrollSectionId && styles.sectionOptionSelected]} onPress={() => setEnrollSectionId('')}>
+                      <Text style={[styles.sectionOptionText, !enrollSectionId && styles.sectionOptionTextSelected]}>None</Text>
                     </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                    {sections.map(s => (
+                      <TouchableOpacity key={s.id} style={[styles.sectionOption, enrollSectionId === s.id && styles.sectionOptionSelected]} onPress={() => setEnrollSectionId(s.id)}>
+                        <Text style={[styles.sectionOptionText, enrollSectionId === s.id && styles.sectionOptionTextSelected]}>{s.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
-            </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Roll Number</Text>
-              <TextInput style={styles.input} placeholder="e.g. 01" value={enrollRoll} onChangeText={setEnrollRoll} keyboardType="numeric" />
-            </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Roll Number</Text>
+                <TextInput style={styles.input} placeholder="e.g. 01" value={enrollRoll} onChangeText={setEnrollRoll} keyboardType="numeric" />
+              </View>
+            </ScrollView>
 
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelButton} onPress={() => setEnrollModalVisible(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
@@ -437,33 +681,54 @@ export default function ClassDetailsScreen() {
             <View style={styles.modalDragIndicator} />
             <Text style={styles.modalTitle}>Assign Teacher</Text>
             
-            <ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Select Teacher</Text>
                 <View style={styles.pickerContainer}>
-                  {teachers.map(t => (
-                    <TouchableOpacity key={t.id} style={[styles.pickerItem, assignTeacherId === t.id && styles.pickerItemSelected]} onPress={() => setAssignTeacherId(t.id)}>
-                      <Text style={[styles.pickerItemText, assignTeacherId === t.id && styles.pickerItemTextSelected]}>{t.profiles?.full_name} ({t.employee_id})</Text>
-                    </TouchableOpacity>
-                  ))}
+                  <ScrollView nestedScrollEnabled style={{ maxHeight: 150 }}>
+                    {teachers.map(t => (
+                      <TouchableOpacity key={t.id} style={[styles.pickerItem, assignTeacherId === t.id && styles.pickerItemSelected]} onPress={() => setAssignTeacherId(t.id)}>
+                        <Text style={[styles.pickerItemText, assignTeacherId === t.id && styles.pickerItemTextSelected]}>{t.profiles?.full_name} ({t.employee_id})</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 </View>
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Select Subject</Text>
+                <Text style={styles.label}>Select Subject(s)</Text>
                 <View style={styles.pickerContainer}>
-                  {subjects.map(s => (
-                    <TouchableOpacity key={s.id} style={[styles.pickerItem, assignSubjectId === s.id && styles.pickerItemSelected]} onPress={() => setAssignSubjectId(s.id)}>
-                      <Text style={[styles.pickerItemText, assignSubjectId === s.id && styles.pickerItemTextSelected]}>{s.name}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  <ScrollView nestedScrollEnabled style={{ maxHeight: 150 }}>
+                    {subjects.length === 0 ? (
+                      <Text style={{ padding: 10, color: '#8E8E93', fontStyle: 'italic', fontSize: 13 }}>No subjects available. Please add subjects to the class first.</Text>
+                    ) : (
+                      subjects.map(s => {
+                        const isSelected = assignSubjectIds.includes(s.id);
+                        return (
+                          <TouchableOpacity 
+                            key={s.id} 
+                            style={[styles.pickerItem, isSelected && styles.pickerItemSelected]} 
+                            onPress={() => {
+                              if (isSelected) {
+                                setAssignSubjectIds(prev => prev.filter(sid => sid !== s.id));
+                              } else {
+                                setAssignSubjectIds(prev => [...prev, s.id]);
+                              }
+                            }}
+                          >
+                            <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>{s.name}</Text>
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </ScrollView>
                 </View>
               </View>
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Section</Text>
                 <View style={styles.pickerContainer}>
-                  <ScrollView horizontal>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <TouchableOpacity style={[styles.sectionOption, !assignSectionId && styles.sectionOptionSelected]} onPress={() => setAssignSectionId('')}>
                       <Text style={[styles.sectionOptionText, !assignSectionId && styles.sectionOptionTextSelected]}>Whole Class</Text>
                     </TouchableOpacity>
@@ -580,4 +845,8 @@ const styles = StyleSheet.create({
   saveButton: { flex: 2, backgroundColor: '#0047AB', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   cancelText: { color: '#8E8E93', fontWeight: '700', fontSize: 16 },
   saveText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
+  previewHeaderRow: { flexDirection: 'row', paddingHorizontal: 4, marginBottom: 8 },
+  previewHeaderText: { fontSize: 13, fontWeight: '700', color: '#8E8E93' },
+  previewRow: { flexDirection: 'row', marginBottom: 12, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 8, borderWidth: 1, borderColor: '#F4F6F8' },
+  previewInput: { backgroundColor: '#F4F6F8', borderRadius: 8, padding: 10, fontSize: 13, color: '#1C1C1E', fontWeight: '500' },
 });

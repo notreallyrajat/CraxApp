@@ -10,10 +10,11 @@ import {
   StatusBar,
   Platform
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
+import CraxLogoSvg from '../../components/CraxLogoSvg';
 import { supabase } from '../../lib/supabase';
 import { getTeacherProfile, getTeacherDashboardStats, getAssignedClasses } from '../../lib/services/teacher';
 import { logActivity } from '../../lib/services/logger';
@@ -114,25 +115,29 @@ export default function TeacherDashboard() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a1d2e" />
       
-      <View style={styles.header}>
+      <View style={styles.headerBackground}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
-            <Ionicons name="menu" size={24} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.logoContainer}>
+            <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={styles.menuButton}>
+              <Ionicons name="menu" size={26} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={{ width: 8 }} />
+            <CraxLogoSvg width={26} height={26} color="#FFFFFF" />
+            <Text style={styles.logoText}>CraxNet</Text>
+          </View>
         </View>
         
-        <View style={styles.welcomeContainer}>
-          <Text style={styles.greeting}>{getGreeting()},</Text>
-          <Text style={styles.teacherName}>{teacher?.fullName?.split(" ")[0]} 👋</Text>
-          <Text style={styles.deptText}>{teacher?.department} Department</Text>
+        <View style={styles.welcomeBox}>
+          <Text style={styles.welcomeText}>Hello, {teacher?.fullName?.split(" ")[0]} 👋</Text>
+          <Text style={styles.dateText}>{teacher?.department} Department</Text>
         </View>
       </View>
 
       <ScrollView 
-        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1a1d2e']} />}
       >
@@ -171,7 +176,7 @@ export default function TeacherDashboard() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -179,28 +184,25 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FA' },
   loadingText: { marginTop: 12, fontSize: 13, color: '#64748b', fontWeight: '600' },
-  header: { 
+  headerBackground: { 
     backgroundColor: '#1a1d2e', 
-    paddingTop: Platform.OS === 'android' ? 5 : 0,
-    paddingBottom: 20, 
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
+    paddingTop: Platform.OS === 'android' ? 20 : 50, 
+    paddingHorizontal: 20, 
+    paddingBottom: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30
   },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
+  logoContainer: { flexDirection: 'row', alignItems: 'center' },
+  menuButton: { padding: 4 },
+  logoText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', marginLeft: 8 },
   headerIcons: { flexDirection: 'row', gap: 12 },
   iconBtn: { padding: 4 },
-  welcomeContainer: { marginTop: 0 },
-  greeting: { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
-  deptText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '600', marginTop: 4 },
-  content: { flex: 1, paddingHorizontal: 20 },
-  statsGrid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    justifyContent: 'space-between', 
-    marginTop: -30,
-    marginBottom: 20
-  },
+  welcomeBox: { marginTop: 5 },
+  welcomeText: { fontSize: 24, fontWeight: '800', color: '#fff' },
+  dateText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4, fontWeight: '600' },
+  scrollContent: { padding: 20 },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 25 },
   statBox: { 
     width: '48%', 
     backgroundColor: '#fff', 

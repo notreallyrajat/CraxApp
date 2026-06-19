@@ -16,3 +16,11 @@ export async function getSubjects(classId?: string) {
 
   return query;
 }
+
+export async function createSubject(data: { name: string; class_id: string; code?: string }) {
+  return supabase.from('subjects').insert(data).select().single();
+}
+
+export async function deleteSubject(id: string) {
+  return supabase.from('subjects').delete().eq('id', id);
+}

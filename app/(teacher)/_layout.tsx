@@ -1,10 +1,11 @@
 import { Drawer } from 'expo-router/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'expo-router';
+import CraxLogoSvg from '../../components/CraxLogoSvg';
 
 function CustomDrawerContent(props: any) {
   const router = useRouter();
@@ -24,7 +25,7 @@ function CustomDrawerContent(props: any) {
       <DrawerContentScrollView {...props}>
         <View style={styles.drawerHeader}>
           <View style={styles.logoCircle}>
-            <Ionicons name="school" size={30} color="#fff" />
+            <CraxLogoSvg width={30} height={30} color="#FFFFFF" />
           </View>
           <Text style={styles.drawerTitle}>Teacher Portal</Text>
         </View>

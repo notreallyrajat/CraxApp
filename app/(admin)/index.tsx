@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Image } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
+import CraxLogoSvg from '../../components/CraxLogoSvg';
 import { logActivity } from '../../lib/services/logger';
 import { getAdminStats } from '../../lib/services/stats';
 
@@ -79,13 +80,8 @@ export default function AdminDashboard() {
               <Ionicons name="menu" size={26} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={{ width: 8 }} />
-            <Ionicons name="school" size={22} color="#FFFFFF" />
+            <CraxLogoSvg width={26} height={26} color="#FFFFFF" />
             <Text style={styles.logoText}>CraxNet</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.avatar}>
-              <Text style={styles.avatarText}>{adminName.charAt(0)}</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -121,6 +117,22 @@ export default function AdminDashboard() {
           <Ionicons name="analytics" size={60} color="rgba(255,255,255,0.2)" style={styles.bannerIcon} />
         </TouchableOpacity>
 
+        {/* Security Logs Banner */}
+        <TouchableOpacity 
+          style={[styles.analyticsBanner, { backgroundColor: '#7F1D1D', marginTop: 15 }]}
+          onPress={() => router.push('/(admin)/security-logs')}
+        >
+          <View style={styles.bannerInfo}>
+            <Text style={styles.bannerTitle}>Security Audit Logs</Text>
+            <Text style={styles.bannerDesc}>Monitor advanced threats, unauthorized access attempts, and system blocks.</Text>
+            <View style={styles.bannerBtn}>
+              <Text style={styles.bannerBtnText}>VIEW THREAT REPORT</Text>
+              <Ionicons name="shield-checkmark" size={14} color="#fff" />
+            </View>
+          </View>
+          <Ionicons name="shield-alert" size={60} color="rgba(255,255,255,0.1)" style={styles.bannerIcon} />
+        </TouchableOpacity>
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -131,7 +143,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
   headerBackground: { 
     backgroundColor: '#1a1d2e', 
-    paddingTop: 50, 
+    paddingTop: Platform.OS === 'android' ? 20 : 50, 
     paddingHorizontal: 20, 
     paddingBottom: 30,
     borderBottomLeftRadius: 30,

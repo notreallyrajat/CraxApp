@@ -5,6 +5,9 @@ import { DrawerActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getTeachers, deleteTeacher } from '../../../lib/services/teacher';
 import { Config } from '../../../constants/Config';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import Papa from 'papaparse';
 
 type Teacher = {
   id: string;
@@ -23,6 +26,7 @@ const emptyForm = {
   phone: '',
   employeeId: '',
   department: '',
+  expertSubjects: '',
   password: '',
 };
 
@@ -62,8 +66,21 @@ const TeacherCard = React.memo(({ item, onDelete }: { item: Teacher, onDelete: (
       )}
       {item.department && (
         <View style={styles.infoRow}>
-          <Ionicons name="briefcase-outline" size={14} color="#8E8E93" />
-          <Text style={styles.infoText}>{item.department}</Text>
+          <Ionicons name="book-outline" size={14} color="#8E8E93" />
+          <Text style={styles.infoText}>
+            {(() => {
+              try {
+                const parsed = JSON.parse(item.department);
+                const deptStr = parsed.dept ? `${parsed.dept}` : '';
+                const subjStr = parsed.expertSubjects && parsed.expertSubjects.length > 0 
+                  ? `Expertise: ${parsed.expertSubjects.join(', ')}` 
+                  : '';
+                return [deptStr, subjStr].filter(Boolean).join(' | ') || item.department;
+              } catch (e) {
+                return item.department;
+              }
+            })()}
+          </Text>
         </View>
       )}
     </View>
@@ -86,6 +103,9 @@ export default function TeachersScreen() {
   const [form, setForm] = useState(emptyForm);
   const [creating, setCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [uploadingCsv, setUploadingCsv] = useState(false);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [previewModalVisible, setPreviewModalVisible] = useState(false);
 
   const PAGE_SIZE = 15;
 
@@ -161,7 +181,10 @@ export default function TeachersScreen() {
           role: 'teacher',
           extraData: {
             employeeId: form.employeeId,
-            department: form.department || undefined,
+            department: JSON.stringify({
+              dept: form.department,
+              expertSubjects: form.expertSubjects ? form.expertSubjects.split(',').map(s => s.trim()).filter(Boolean) : []
+            }),
           },
         }),
       });
@@ -185,6 +208,120 @@ export default function TeachersScreen() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleCsvUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'application/vnd.ms-excel', 'text/comma-separated-values', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      setUploadingCsv(true);
+      const fileUri = result.assets[0].uri;
+      let fileData: any;
+      if (result.assets[0].file) fileData = result.assets[0].file;
+      else fileData = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as any });
+
+      Papa.parse(fileData, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const rows = results.data as any[];
+          if (rows.length === 0) {
+            Alert.alert('Error', 'The CSV file is empty.');
+            setUploadingCsv(false);
+            return;
+          }
+
+          const formattedRows = rows.map(row => ({
+            fullName: row['full name'] || row['name'] || row['Full Name'] || row['Name'] || '',
+            email: row['email'] || row['Email'] || '',
+            password: row['password'] || row['Password'] || 'password123',
+            employeeId: row['employee id'] || row['Employee ID'] || row['employee_id'] || '',
+            department: row['department'] || row['Department'] || '',
+            expertSubjects: row['expert subjects'] || row['Expert Subjects'] || row['expert_subjects'] || '',
+            phone: row['phone'] || row['Phone'] || '',
+          })).filter(row => row.fullName && row.email && row.employeeId);
+
+          if (formattedRows.length === 0) {
+            Alert.alert('Error', 'No valid teachers found. Ensure CSV has "Full Name", "Email", and "Employee ID".');
+            setUploadingCsv(false);
+            return;
+          }
+
+          setPreviewData(formattedRows);
+          setPreviewModalVisible(true);
+          setUploadingCsv(false);
+        },
+        error: (error: any) => {
+          Alert.alert('Error parsing CSV', error.message);
+          setUploadingCsv(false);
+        }
+      });
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+      setUploadingCsv(false);
+    }
+  };
+
+  const confirmCsvUpload = async () => {
+    setUploadingCsv(true);
+    const validData = previewData.filter(item => item.fullName.trim() !== '' && item.email.trim() !== '' && item.employeeId.trim() !== '');
+    
+    if (validData.length === 0) {
+      Alert.alert('Error', 'No valid teachers to upload.');
+      setUploadingCsv(false);
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const teacher of validData) {
+      try {
+        const response = await fetch(`${Config.SUPABASE_FUNCTIONS_URL}/manage-users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: teacher.email,
+            password: teacher.password,
+            fullName: teacher.fullName,
+            phone: teacher.phone || undefined,
+            role: 'teacher',
+            extraData: {
+              employeeId: teacher.employeeId,
+              department: JSON.stringify({
+                dept: teacher.department,
+                expertSubjects: teacher.expertSubjects ? teacher.expertSubjects.split(',').map((s: string) => s.trim()).filter(Boolean) : []
+              }),
+            },
+          }),
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        failCount++;
+      }
+    }
+    
+    Alert.alert('Upload Complete', `Successfully imported ${successCount} teachers. Failed: ${failCount}`);
+    setPreviewModalVisible(false);
+    setPreviewData([]);
+    loadTeachers(0, true);
+    setUploadingCsv(false);
+  };
+
+  const updatePreviewItem = (index: number, field: string, value: string) => {
+    const newData = [...previewData];
+    newData[index][field] = value;
+    setPreviewData(newData);
   };
 
   const handleDelete = React.useCallback((id: string, name: string) => {
@@ -272,14 +409,23 @@ export default function TeachersScreen() {
         />
       )}
 
-      {/* Floating Action Button */}
-      <TouchableOpacity 
-        style={styles.fab} 
-        onPress={() => setModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={30} color="#FFFFFF" />
-      </TouchableOpacity>
+      {/* Floating Action Buttons Container */}
+      <View style={styles.fabContainer}>
+        <TouchableOpacity 
+          style={[styles.fab, { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#0047AB', marginBottom: 16 }]} 
+          onPress={handleCsvUpload}
+          activeOpacity={0.8}
+        >
+          {uploadingCsv ? <ActivityIndicator size="small" color="#0047AB" /> : <Ionicons name="document-text-outline" size={24} color="#0047AB" />}
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.fab} 
+          onPress={() => setModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={30} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
 
       {/* Add Teacher Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
@@ -328,10 +474,21 @@ export default function TeachersScreen() {
                 <Text style={styles.label}>Department</Text>
                 <TextInput 
                   style={styles.input} 
-                  placeholder="e.g. Mathematics" 
+                  placeholder="e.g. Science" 
                   placeholderTextColor="#A0A0A0" 
                   value={form.department} 
                   onChangeText={(val) => setForm({...form, department: val})} 
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Expert Subject(s)</Text>
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="e.g. Math, Physics (Comma separated)" 
+                  placeholderTextColor="#A0A0A0" 
+                  value={form.expertSubjects} 
+                  onChangeText={(val) => setForm({...form, expertSubjects: val})} 
                 />
               </View>
 
@@ -378,6 +535,73 @@ export default function TeachersScreen() {
                 disabled={creating}
               >
                 <Text style={styles.saveText}>{creating ? 'Creating...' : 'Register Teacher'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CSV Preview Modal */}
+      <Modal visible={previewModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { height: '85%' }]}>
+            <View style={styles.modalDragIndicator} />
+            <Text style={styles.modalTitle}>Review Teacher Data</Text>
+            
+            <View style={styles.previewHeaderRow}>
+              <Text style={[styles.previewHeaderText, { flex: 2 }]}>Name & Email</Text>
+              <Text style={[styles.previewHeaderText, { flex: 1.5 }]}>Emp ID & Subjects</Text>
+            </View>
+            
+            <FlatList
+              data={previewData}
+              keyExtractor={(_, index) => index.toString()}
+              style={{ flex: 1, marginBottom: 16 }}
+              renderItem={({ item, index }) => (
+                <View style={styles.previewRow}>
+                  <View style={{ flex: 2, marginRight: 8 }}>
+                    <TextInput
+                      style={[styles.previewInput, { marginBottom: 4 }]}
+                      value={item.fullName}
+                      onChangeText={(val) => updatePreviewItem(index, 'fullName', val)}
+                      placeholder="Full Name"
+                    />
+                    <TextInput
+                      style={styles.previewInput}
+                      value={item.email}
+                      onChangeText={(val) => updatePreviewItem(index, 'email', val)}
+                      placeholder="Email"
+                      keyboardType="email-address"
+                    />
+                  </View>
+                  <View style={{ flex: 1.5 }}>
+                    <TextInput
+                      style={[styles.previewInput, { marginBottom: 4 }]}
+                      value={item.employeeId}
+                      onChangeText={(val) => updatePreviewItem(index, 'employeeId', val)}
+                      placeholder="Emp ID"
+                    />
+                    <TextInput
+                      style={styles.previewInput}
+                      value={item.expertSubjects}
+                      onChangeText={(val) => updatePreviewItem(index, 'expertSubjects', val)}
+                      placeholder="Expert Subjects"
+                    />
+                  </View>
+                </View>
+              )}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setPreviewModalVisible(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.saveButton, (uploadingCsv) && { opacity: 0.7 }]} 
+                onPress={confirmCsvUpload} 
+                disabled={uploadingCsv}
+              >
+                <Text style={styles.saveText}>{uploadingCsv ? 'Uploading...' : 'Confirm Upload'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -450,10 +674,13 @@ const styles = StyleSheet.create({
   cardContent: { borderTopWidth: 1, borderTopColor: '#F4F6F8', paddingTop: 12, gap: 6 },
   infoRow: { flexDirection: 'row', alignItems: 'center' },
   infoText: { fontSize: 13, color: '#666', marginLeft: 8, fontWeight: '500' },
-  fab: {
+  fabContainer: {
     position: 'absolute',
     bottom: 24,
     right: 24,
+    alignItems: 'center',
+  },
+  fab: {
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -493,4 +720,8 @@ const styles = StyleSheet.create({
   cancelText: { color: '#8E8E93', fontWeight: '700', fontSize: 16 },
   saveButton: { flex: 2, backgroundColor: '#0047AB', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   saveText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
+  previewHeaderRow: { flexDirection: 'row', paddingHorizontal: 4, marginBottom: 8 },
+  previewHeaderText: { fontSize: 13, fontWeight: '700', color: '#8E8E93' },
+  previewRow: { flexDirection: 'row', marginBottom: 12, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 8, borderWidth: 1, borderColor: '#F4F6F8' },
+  previewInput: { backgroundColor: '#F4F6F8', borderRadius: 8, padding: 10, fontSize: 13, color: '#1C1C1E', fontWeight: '500' },
 });

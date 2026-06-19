@@ -6,6 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { getStudents, deleteStudent } from '../../../lib/services/student';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Config } from '../../../constants/Config';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import Papa from 'papaparse';
 
 type Student = {
   id: string;
@@ -88,6 +91,9 @@ export default function StudentsScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [creating, setCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [uploadingCsv, setUploadingCsv] = useState(false);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [previewModalVisible, setPreviewModalVisible] = useState(false);
 
   const PAGE_SIZE = 15;
 
@@ -189,6 +195,125 @@ export default function StudentsScreen() {
     }
   };
 
+  const handleCsvUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'application/vnd.ms-excel', 'text/comma-separated-values', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      setUploadingCsv(true);
+      const fileUri = result.assets[0].uri;
+      let fileData: any;
+      if (result.assets[0].file) fileData = result.assets[0].file;
+      else fileData = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as any });
+
+      Papa.parse(fileData, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const rows = results.data as any[];
+          if (rows.length === 0) {
+            Alert.alert('Error', 'The CSV file is empty.');
+            setUploadingCsv(false);
+            return;
+          }
+
+          const formattedRows = rows.map(row => ({
+            fullName: row['full name'] || row['name'] || row['Full Name'] || row['Name'] || '',
+            email: row['email'] || row['Email'] || '',
+            password: row['password'] || row['Password'] || 'password123',
+            admissionNo: row['admission no'] || row['Admission No'] || row['admission_no'] || '',
+            phone: row['phone'] || row['Phone'] || '',
+            dateOfBirth: row['dob'] || row['Date of Birth'] || row['date_of_birth'] || ''
+          })).filter(row => row.fullName && row.email && row.admissionNo);
+
+          if (formattedRows.length === 0) {
+            Alert.alert('Error', 'No valid students found. Ensure CSV has "Full Name", "Email", and "Admission No".');
+            setUploadingCsv(false);
+            return;
+          }
+
+          setPreviewData(formattedRows);
+          setPreviewModalVisible(true);
+          setUploadingCsv(false);
+        },
+        error: (error: any) => {
+          Alert.alert('Error parsing CSV', error.message);
+          setUploadingCsv(false);
+        }
+      });
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+      setUploadingCsv(false);
+    }
+  };
+
+  const confirmCsvUpload = async () => {
+    setUploadingCsv(true);
+    const validData = previewData.filter(item => item.fullName.trim() !== '' && item.email.trim() !== '' && item.admissionNo.trim() !== '');
+    
+    if (validData.length === 0) {
+      Alert.alert('Error', 'No valid students to upload.');
+      setUploadingCsv(false);
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // We process sequentially to avoid overwhelming the database/functions, but we can do a loop.
+    for (const student of validData) {
+      try {
+        let dobStr = null;
+        if (student.dateOfBirth) {
+          const parsedDate = new Date(student.dateOfBirth);
+          if (!isNaN(parsedDate.getTime())) {
+            dobStr = parsedDate.toISOString().split('T')[0];
+          }
+        }
+
+        const response = await fetch(`${Config.SUPABASE_FUNCTIONS_URL}/manage-users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: student.email,
+            password: student.password,
+            fullName: student.fullName,
+            phone: student.phone || undefined,
+            role: 'student',
+            extraData: {
+              admissionNo: student.admissionNo,
+              dateOfBirth: dobStr,
+            },
+          }),
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        failCount++;
+      }
+    }
+    
+    Alert.alert('Upload Complete', `Successfully imported ${successCount} students. Failed: ${failCount}`);
+    setPreviewModalVisible(false);
+    setPreviewData([]);
+    loadStudents(0, true);
+    setUploadingCsv(false);
+  };
+
+  const updatePreviewItem = (index: number, field: string, value: string) => {
+    const newData = [...previewData];
+    newData[index][field] = value;
+    setPreviewData(newData);
+  };
+
   const handleDelete = React.useCallback((id: string, name: string) => {
     Alert.alert(
       "Delete Student",
@@ -274,14 +399,23 @@ export default function StudentsScreen() {
         />
       )}
 
-      {/* Floating Action Button */}
-      <TouchableOpacity 
-        style={styles.fab} 
-        onPress={() => setModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={30} color="#FFFFFF" />
-      </TouchableOpacity>
+      {/* Floating Action Buttons Container */}
+      <View style={styles.fabContainer}>
+        <TouchableOpacity 
+          style={[styles.fab, { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#0047AB', marginBottom: 16 }]} 
+          onPress={handleCsvUpload}
+          activeOpacity={0.8}
+        >
+          {uploadingCsv ? <ActivityIndicator size="small" color="#0047AB" /> : <Ionicons name="document-text-outline" size={24} color="#0047AB" />}
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.fab} 
+          onPress={() => setModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={30} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
 
       {/* Add Student Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
@@ -393,6 +527,74 @@ export default function StudentsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* CSV Preview Modal */}
+      <Modal visible={previewModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { height: '85%' }]}>
+            <View style={styles.modalDragIndicator} />
+            <Text style={styles.modalTitle}>Review Student Data</Text>
+            
+            <View style={styles.previewHeaderRow}>
+              <Text style={[styles.previewHeaderText, { flex: 2 }]}>Name & Email</Text>
+              <Text style={[styles.previewHeaderText, { flex: 1.5 }]}>Adm No & Pass</Text>
+            </View>
+            
+            <FlatList
+              data={previewData}
+              keyExtractor={(_, index) => index.toString()}
+              style={{ flex: 1, marginBottom: 16 }}
+              renderItem={({ item, index }) => (
+                <View style={styles.previewRow}>
+                  <View style={{ flex: 2, marginRight: 8 }}>
+                    <TextInput
+                      style={[styles.previewInput, { marginBottom: 4 }]}
+                      value={item.fullName}
+                      onChangeText={(val) => updatePreviewItem(index, 'fullName', val)}
+                      placeholder="Full Name"
+                    />
+                    <TextInput
+                      style={styles.previewInput}
+                      value={item.email}
+                      onChangeText={(val) => updatePreviewItem(index, 'email', val)}
+                      placeholder="Email"
+                      keyboardType="email-address"
+                    />
+                  </View>
+                  <View style={{ flex: 1.5 }}>
+                    <TextInput
+                      style={[styles.previewInput, { marginBottom: 4 }]}
+                      value={item.admissionNo}
+                      onChangeText={(val) => updatePreviewItem(index, 'admissionNo', val)}
+                      placeholder="Adm No"
+                    />
+                    <TextInput
+                      style={styles.previewInput}
+                      value={item.password}
+                      onChangeText={(val) => updatePreviewItem(index, 'password', val)}
+                      placeholder="Password"
+                      secureTextEntry
+                    />
+                  </View>
+                </View>
+              )}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setPreviewModalVisible(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.saveButton, (uploadingCsv) && { opacity: 0.7 }]} 
+                onPress={confirmCsvUpload} 
+                disabled={uploadingCsv}
+              >
+                <Text style={styles.saveText}>{uploadingCsv ? 'Uploading...' : 'Confirm Upload'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -460,10 +662,13 @@ const styles = StyleSheet.create({
   cardContent: { borderTopWidth: 1, borderTopColor: '#F4F6F8', paddingTop: 12, gap: 6 },
   infoRow: { flexDirection: 'row', alignItems: 'center' },
   infoText: { fontSize: 13, color: '#666', marginLeft: 8, fontWeight: '500' },
-  fab: {
+  fabContainer: {
     position: 'absolute',
     bottom: 24,
     right: 24,
+    alignItems: 'center',
+  },
+  fab: {
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -512,4 +717,8 @@ const styles = StyleSheet.create({
   cancelText: { color: '#8E8E93', fontWeight: '700', fontSize: 16 },
   saveButton: { flex: 2, backgroundColor: '#0047AB', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   saveText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16 },
+  previewHeaderRow: { flexDirection: 'row', paddingHorizontal: 4, marginBottom: 8 },
+  previewHeaderText: { fontSize: 13, fontWeight: '700', color: '#8E8E93' },
+  previewRow: { flexDirection: 'row', marginBottom: 12, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 8, borderWidth: 1, borderColor: '#F4F6F8' },
+  previewInput: { backgroundColor: '#F4F6F8', borderRadius: 8, padding: 10, fontSize: 13, color: '#1C1C1E', fontWeight: '500' },
 });

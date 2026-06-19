@@ -2,10 +2,11 @@ import React from 'react';
 import { Drawer } from 'expo-router/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Image } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'expo-router';
+import CraxLogoSvg from '../../components/CraxLogoSvg';
 
 function CustomAdminDrawer(props: any) {
   const router = useRouter();
@@ -21,7 +22,7 @@ function CustomAdminDrawer(props: any) {
   };
 
   const categories = [
-    { label: 'OVERVIEW', items: ['index', 'account'] },
+    { label: 'OVERVIEW', items: ['index'] },
     { label: 'ACADEMIC', items: ['classes', 'students', 'teachers', 'attendance', 'exams/index'] },
     { label: 'INSTITUTIONAL', items: ['records/index', 'resources/index', 'notifications'] },
     { label: 'ANALYTICS', items: ['student-analytics', 'chat-logs'] },
@@ -33,7 +34,7 @@ function CustomAdminDrawer(props: any) {
       <DrawerContentScrollView {...props}>
         <View style={styles.drawerHeader}>
           <View style={styles.logoCircle}>
-            <Ionicons name="school" size={30} color="#fff" />
+            <CraxLogoSvg width={30} height={30} color="#FFFFFF" />
           </View>
           <View>
             <Text style={styles.drawerTitle}>CraxNet</Text>
@@ -104,7 +105,6 @@ export default function AdminLayout() {
         }}
       >
         <Drawer.Screen name="index" options={{ drawerLabel: 'Dashboard', drawerIcon: (p) => <Ionicons name="grid-outline" {...p} /> }} />
-        <Drawer.Screen name="account" options={{ drawerLabel: 'My Profile', drawerIcon: (p) => <Ionicons name="person-outline" {...p} /> }} />
         <Drawer.Screen name="classes" options={{ drawerLabel: 'Classes', drawerIcon: (p) => <Ionicons name="book-outline" {...p} /> }} />
         <Drawer.Screen name="students" options={{ drawerLabel: 'Students', drawerIcon: (p) => <Ionicons name="people-outline" {...p} /> }} />
         <Drawer.Screen name="teachers" options={{ drawerLabel: 'Teachers', drawerIcon: (p) => <Ionicons name="school-outline" {...p} /> }} />
@@ -120,6 +120,7 @@ export default function AdminLayout() {
         <Drawer.Screen name="fees" options={{ drawerLabel: 'Fee Gateway', drawerIcon: (p) => <Ionicons name="card-outline" {...p} /> }} />
 
         {/* Hidden Technical Routes */}
+        <Drawer.Screen name="account" options={{ drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="logs" options={{ drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="timetable-generator" options={{ drawerItemStyle: { display: 'none' } }} />
         <Drawer.Screen name="timetables" options={{ drawerItemStyle: { display: 'none' } }} />

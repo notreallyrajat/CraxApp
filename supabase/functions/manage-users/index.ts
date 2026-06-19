@@ -15,6 +15,26 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    
+    // Create an authenticated client based on the caller's JWT
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing authorization header" }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+    
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    })
+    
+    // Verify the caller is an admin
+    const { data: role, error: rpcError } = await userClient.rpc('get_my_role')
+    if (rpcError || role !== 'admin') {
+      console.error("Unauthorized role access:", rpcError, role)
+      return new Response(JSON.stringify({ error: "Unauthorized. Admin privileges required." }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    // Now instantiate the admin client for executing the actual privileged actions
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Handle DELETE
@@ -32,9 +52,9 @@ serve(async (req) => {
     }
 
     const body = await req.json()
-    const { email, password, fullName, phone, role, extraData } = body
+    const { email, password, fullName, phone, role: newUserRole, extraData } = body
 
-    if (!email || !password || !fullName || !role) {
+    if (!email || !password || !fullName || !newUserRole) {
       return new Response(JSON.stringify({ error: "email, password, fullName and role are required" }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -82,7 +102,7 @@ serve(async (req) => {
     // 3. Assign role
     const { error: roleError } = await supabase
       .from("user_roles")
-      .insert({ profile_id: profile.id, role })
+      .insert({ profile_id: profile.id, role: newUserRole })
 
     if (roleError) {
       console.error("Role insert error:", roleError)
@@ -94,7 +114,7 @@ serve(async (req) => {
     }
 
     // 4. Role-specific record
-    if (role === "student" && extraData?.admissionNo) {
+    if (newUserRole === "student" && extraData?.admissionNo) {
       const { error: e } = await supabase.from("students").insert({
         profile_id: profile.id,
         admission_no: extraData.admissionNo,
@@ -103,7 +123,7 @@ serve(async (req) => {
       if (e) return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    if (role === "teacher" && extraData?.employeeId) {
+    if (newUserRole === "teacher" && extraData?.employeeId) {
       const { error: e } = await supabase.from("teachers").insert({
         profile_id: profile.id,
         employee_id: extraData.employeeId,
