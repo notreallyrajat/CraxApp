@@ -120,6 +120,7 @@ export default function StudentLayout() {
             ),
           }}
         />
+        {/* 
         <Drawer.Screen
           name="records"
           options={{
@@ -129,6 +130,7 @@ export default function StudentLayout() {
             ),
           }}
         />
+        */}
         <Drawer.Screen
           name="assignments"
           options={{
