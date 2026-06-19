@@ -156,15 +156,7 @@ export default function TeacherLayout() {
             ),
           }}
         />
-        <Drawer.Screen
-          name="allotment"
-          options={{
-            drawerLabel: 'AI Allotment',
-            drawerIcon: ({ color, size }) => (
-              <Ionicons name="grid" size={22} color={color} />
-            ),
-          }}
-        />
+
         <Drawer.Screen
           name="gps"
           options={{

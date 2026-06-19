@@ -83,8 +83,15 @@ export default function TeacherChatListScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Student Chats</Text>
-        <Text style={styles.headerSub}>Communicate with your students</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>Student Chats</Text>
+            <Text style={styles.headerSub}>Communicate with your students</Text>
+          </View>
+        </View>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={20} color="#94A3B8" />
           <TextInput 
@@ -136,8 +143,10 @@ const styles = StyleSheet.create({
     paddingBottom: 25, 
     paddingHorizontal: 20 
   },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 15 },
+  backBtn: { padding: 5 },
   headerTitle: { fontSize: 24, fontWeight: '800', color: '#fff' },
-  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '600', marginBottom: 15 },
+  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 15, height: 45 },
   searchInput: { flex: 1, marginLeft: 10, fontSize: 14, color: '#1a1d2e' },
   content: { flex: 1, padding: 20 },
