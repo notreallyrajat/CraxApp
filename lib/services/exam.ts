@@ -218,7 +218,6 @@ export async function saveResults(
   const toSave = rows
     .filter((r) => (r.marksObtained || "").toString().trim() !== "")
     .map((r) => ({
-      id: r.id || undefined,
       exam_subject_id: examSubjectId,
       student_id: r.studentId,
       marks_obtained: r.marksObtained,
