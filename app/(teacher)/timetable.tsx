@@ -81,14 +81,13 @@ export default function TeacherTimetableScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Schedule</Text>
-          <View style={{ width: 40 }} /> {/* Spacer */}
+          <View style={{ width: 40 }} />
         </View>
       </View>
 

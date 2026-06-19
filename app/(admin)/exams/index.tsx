@@ -324,12 +324,12 @@ export default function ExamsScreen() {
 
             {/* Step Indicator */}
             <View style={styles.stepIndicator}>
-              <View style={[styles.stepItem, step === 'details' && styles.activeStepItem]}>
+              <View style={styles.stepItem}>
                 <Text style={[styles.stepNumber, step === 'details' && styles.activeStepNumber]}>1</Text>
                 <Text style={[styles.stepLabel, step === 'details' && styles.activeStepLabel]}>Basic Info</Text>
               </View>
               <View style={styles.stepConnector} />
-              <View style={[styles.stepItem, step === 'subjects' && styles.activeStepItem]}>
+              <View style={styles.stepItem}>
                 <Text style={[styles.stepNumber, step === 'subjects' && styles.activeStepNumber]}>2</Text>
                 <Text style={[styles.stepLabel, step === 'subjects' && styles.activeStepLabel]}>Subjects</Text>
               </View>
