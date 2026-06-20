@@ -1,102 +1,84 @@
-# CraxNet Mobile: Advanced School Management Ecosystem
+# CraxNet Institutional OS - Product Requirements Document (PRD)
 
-CraxNet is a high-performance, data-driven mobile application built for modern educational institutions. It provides a unified ecosystem for Administrators, Teachers, and Students to manage academic performance, institutional resources, and daily logistics with a premium, user-centric interface.
+## 📌 Product Overview
+CraxNet Institutional OS is a modern, cross-platform educational management system built on React Native (Expo) and Supabase. It serves as a centralized hub connecting Students, Teachers, and Administrators through highly tailored, glassmorphic "Institutional OS" interfaces. 
 
-## 🚀 Key Features
+The application is built with a focus on real-time data, premium minimalist aesthetics, and mobile-first accessibility. It transitions traditional school management into a fluid, user-friendly digital experience.
 
-### 🏛 Admin Command Center
-- **Institutional Analytics**: High-level "God Statistics" covering attendance, enrollment, and live classroom activity.
-- **User Management**: Integrated creation and management of Students and Teachers directly from the mobile interface.
-- **Academic Momentum Engine**: Deep-dive student performance tracker with class-level drill-downs and trend analysis.
-- **Management Suite**: Categorized controls for classes, teachers, student directory, and institutional resources.
+---
 
-### 🍎 Teacher Portal
-- **Mark & Exam Management**: Digital entry for results with automated GPA calculations.
-- **Attendance Tracking**: Real-time roll calls and session management.
-- **Collaborative Hub**: Secure communication logs and shared resource distribution.
+## 🎯 Core Objectives
+1. **Unify Stakeholders**: Provide distinct, secure, and fully functional dashboards for Admins, Teachers, and Students.
+2. **Real-time Synchronization**: Utilize Supabase for instant updates on announcements, attendance, and assignments.
+3. **Premium UX/UI**: Implement a minimalist, glassmorphic design system (The "Institutional OS" aesthetic) replacing clunky traditional ERP layouts.
+4. **Platform Flexibility**: Seamlessly deployable across iOS, Android, and Web from a single codebase.
 
-### 🎓 Student Experience
-- **Performance Profile**: Visualized academic trends, mark history, and attendance records.
-- **AI-Powered Chat**: Intelligent assistant for academic queries and institutional information.
-- **Resource Access**: Digital library and document management system.
+---
+
+## 👤 User Roles & Dashboards
+
+### 1. Student Dashboard (The "Student Portal")
+**Objective**: Empower students with a clear, beautiful overview of their academic life, minimizing anxiety and maximizing engagement.
+
+**Key Features:**
+* **Dynamic ID Card & Avatar System**: A personalized banner displaying the student's name, class, and roll number, featuring an interactive Avatar selector offering 12 modern, South-Asian localized "Micah-style" vectors.
+* **Real-time Analytics Grid**: Four minimalist stat cards displaying overall attendance, pending homework, upcoming exams, and active announcements.
+* **"Today's Timetable" Widget**: Fetches the live daily schedule from the backend, filtering out past classes and highlighting active/upcoming periods.
+* **Smart Bottom Navigation**: A persistent, beautifully styled bottom tab bar giving instant access to:
+  * **Dashboard** (Home)
+  * **Academics** (Resources & Study Materials)
+  * **Announcements** (Notice Board)
+  * **Schedule** (Full weekly timetable)
+  * **Chat** (Direct communication with teachers)
+* **Quick Actions**: Icon-based shortcuts for high-frequency tasks like *Bus Tracking* and *Pay Fees*.
+* **Secure Logout**: Handled gracefully within the profile avatar modal.
+
+### 2. Teacher Dashboard (The "Faculty Workspace")
+**Objective**: Provide educators with frictionless tools to manage classrooms, grade students, and communicate without administrative overhead.
+
+**Key Features:**
+* **Teacher ID Card**: A glassmorphic banner showing Department, Employee ID, and a radial progress chart visualizing their classes' overall attendance rate.
+* **Faculty Stats Grid**: Quick insights highlighting *Assigned Classes*, *Total Students*, *Pending Tasks*, and a live *Online Status* indicator.
+* **Quick Actions Scroll**: Horizontal shortcuts to deeply integrated modules:
+  * **Attendance Management** (Marking students present/absent)
+  * **Assignments** (Creating and tracking homework)
+  * **Resources** (Uploading syllabus and study materials)
+  * **Messages** (Responding to student queries)
+* **Live Notice Board**: A beautifully formatted feed of school-wide announcements with distinct date-badge UI.
+* **Avatar & Profile Control**: Parity with the student portal, allowing teachers to select professional avatars.
+
+### 3. Admin Dashboard (The "Command Center")
+**Objective**: Give school administrators total, secure control over the ecosystem's data, users, and global communications.
+
+**Key Features:**
+* **Ecosystem Analytics**: High-level statistical overviews of the entire institution (Total revenue, active users, average attendance).
+* **Role Management**: Secure creation, modification, and deletion of Student and Teacher accounts.
+* **Class & Schedule Architect**: Tools to build class hierarchies and generate daily timetables.
+* **Global Announcements**: A publishing engine to broadcast notices across the entire Institutional OS.
+* **Security & Logs**: Access to system logs to ensure compliance and monitor unauthorized access attempts.
+
+---
+
+## 🚀 Future Roadmap (Upcoming Features)
+
+We are constantly evolving CraxNet. The following features are slated for the next major release cycles:
+
+1. **Live GPS Bus Tracking**: 
+   * Integrating real-time geolocation so students and parents can track their assigned school bus on a live map within the app.
+2. **Integrated Payment Gateway (Pay Fees)**: 
+   * A seamless, secure module allowing parents to pay tuition and track invoice history directly through the dashboard.
+3. **AI-Powered "God Stats" Analytics**:
+   * Implementing machine learning to analyze student performance trends and predict academic momentum, alerting teachers to struggling students early.
+4. **Interactive Exam Portal**:
+   * Allowing teachers to construct and administer secure multiple-choice and short-answer quizzes directly within the app.
+5. **Push Notification Infrastructure**:
+   * Migrating from pull-based data updates to real-time push notifications for instant alerts on assignments and bus proximity.
+
+---
 
 ## 🛠 Tech Stack
-
-- **Core Framework**: [Expo](https://expo.dev/) (SDK 54) with [React Native](https://reactnative.dev/).
-- **Navigation**: [Expo Router](https://docs.expo.dev/router/introduction/) (v4) using Stack, Tabs, and Drawer patterns.
-- **Backend & Database**: [Supabase](https://supabase.com/) (PostgreSQL) with Row Level Security (RLS).
-- **AI Integration**: OpenAI GPT-4o and Groq LPU integration for intelligent chat and data analysis.
-- **Authentication**: Supabase Auth with persistent session management via `expo-secure-store`.
-- **Styling**: Vanilla React Native StyleSheet with modern design principles (Glassmorphism, 3D Isometric assets).
-
-## 📁 Project Structure
-
-```text
-├── app/                  # Expo Router directory (File-based routing)
-│   ├── (admin)/          # Administrative portal modules (Analytics, Records, Management)
-│   ├── (teacher)/        # Educator-specific interfaces (Attendance, Marks)
-│   ├── (student)/        # Student performance & AI Chat modules
-│   ├── (auth)/           # Authentication flows (Login, Forgot Password)
-│   ├── _layout.tsx       # Root layout with providers (GestureHandler, Auth)
-│   └── index.tsx         # Unified Entry & Role-based redirection
-├── assets/               # 3D Illustrations, icons, and branding
-├── components/           # Reusable UI components (Analytics, AI Chat, etc.)
-├── lib/                  # Core services and configuration
-│   ├── services/         # Data fetching & Business logic
-│   └── supabase.ts       # Supabase client initialization
-├── constants/            # Global theme and styling tokens
-└── supabase/             # Edge Functions and DB configurations
-```
-
-## ⚙️ Prerequisites & Setup
-
-1. **Node.js**: Version 18.x or higher.
-2. **Expo CLI**: Installed globally (`npm install -g expo-cli`).
-3. **Environment Variables**: Create a `.env` file in the root with the following keys:
-   ```env
-   EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   EXPO_PUBLIC_OPENAI_API_KEY=your_openai_key
-   EXPO_PUBLIC_GROQ_API_KEY=your_groq_key
-   ```
-4. **Dependencies**: Run `npm install` to set up the environment.
-5. **Start Dev Server**: Run `npx expo start` to launch the Metro Bundler.
-
-## 🛣 Future Roadmap
-
-- **🚌 Live Bus GPS**: Real-time coordinate tracking and ETA notifications.
-- **💳 Online Fee Gateway**: Integrated digital payments and paperless history.
-- **📈 Advanced Predictive Analytics**: AI-driven student success forecasting.
-
----
-
-## 🧪 Testing & Reliability
-
-To ensure institutional-grade stability, CraxNet uses a structured testing framework powered by **Jest**.
-
-### 🛠 Recent Improvements
-- **Decoupled Logic**: Extracted mathematical logic (GPA, Attendance rates) into standalone, testable utility functions in `lib/utils/calculations.ts`.
-- **Unit Testing**: 100% test coverage achieved for core calculation utilities, protecting against rounding errors and division-by-zero flaws.
-- **Bug Fixes**: Identified and resolved a critical GPA calculation bug where invalid data could lead to corrupted performance reports.
-
-### ✅ Verification Status
-| Suite | Coverage | Status |
-| :--- | :--- | :--- |
-| **Calculation Utilities** | 100% | ✅ Passed |
-| **Auto-Grading & Validation** | 100% | ✅ Passed |
-| **UI Components** | Base | ✅ Passed |
-
-### 🔍 Security Loophole Audit (Ongoing)
-- [x] **GPA Integrity**: Validated via unit tests.
-- [x] **Grade Manipulation**: Added `validateMarks` utility to enforce bound checking.
-- [x] **Grading Logic**: Centralized and tested `autoGrade` to prevent inconsistent grading across modules.
-- [ ] **RLS Audit**: verifying that students cannot access teacher-only data layers.
-- [ ] **Role Escalation**: Ensuring `admin` privileges are server-side enforced.
-
-To run the latest test suite, execute:
-```bash
-npm test
-```
-
----
-*Developed with a focus on data integrity, visual excellence, and institutional scalability.*
+* **Frontend**: React Native, Expo, Expo Router
+* **Backend/BaaS**: Supabase (PostgreSQL, Auth, Edge Functions)
+* **Styling**: Vanilla React Native StyleSheet (Glassmorphic & Flat Vector focus)
+* **State Management**: React Hooks & Context API
+* **Icons & Assets**: Expo Vector Icons (Ionicons), Dicebear API (Local Assets)
