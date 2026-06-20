@@ -67,36 +67,38 @@ export default function StudentChatListScreen() {
     loadData();
   };
 
-  if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color="#1a1d2e" /></View>;
+  if (loading && !refreshing) {
+    return <View style={styles.center}><ActivityIndicator size="large" color="#3B3D6B" /></View>;
   }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={28} color="#0f172a" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Teachers</Text>
+          <Text style={styles.headerTitle}>Messages</Text>
+          <View style={{ width: 28 }} />
         </View>
-        <Text style={styles.headerSub}>Select a teacher to start chatting</Text>
       </View>
 
       <ScrollView 
         style={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1a1d2e']} />}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B3D6B']} />}
+        contentContainerStyle={{ paddingBottom: 100 }}
       >
         {teachers.length === 0 ? (
           <View style={styles.empty}>
-            <Ionicons name="chatbubbles-outline" size={48} color="#CBD5E1" />
-            <Text style={styles.emptyText}>No teachers found for your class.</Text>
+            <Ionicons name="chatbubbles-outline" size={56} color="#cbd5e1" />
+            <Text style={styles.emptyText}>No teachers found for your class</Text>
           </View>
         ) : (
           teachers.map(teacher => (
             <TouchableOpacity 
               key={teacher.id} 
-              style={styles.teacherCard}
+              style={styles.card}
               onPress={() => router.push(`/(student)/chat/${teacher.id}` as any)}
             >
               <View style={styles.avatar}>
@@ -106,7 +108,9 @@ export default function StudentChatListScreen() {
                 <Text style={styles.name}>{teacher.name}</Text>
                 <Text style={styles.subjects}>{teacher.subjects.join(', ')}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
+              <View style={styles.actionIcon}>
+                <Ionicons name="chatbubble-ellipses" size={20} color="#3B3D6B" />
+              </View>
             </TouchableOpacity>
           ))
         )}
@@ -116,36 +120,50 @@ export default function StudentChatListScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { 
-    backgroundColor: '#1a1d2e', 
-    paddingTop: Platform.OS === 'android' ? 40 : 15, 
-    paddingBottom: 25, 
-    paddingHorizontal: 20 
-  },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 5 },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
-  content: { flex: 1, padding: 20 },
+  container: { flex: 1, backgroundColor: '#F8F9FE' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { 
+    marginTop: Platform.OS === 'android' ? 50 : 60, 
+    marginBottom: 10,
+    paddingHorizontal: 20
+  },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  backBtn: { padding: 4, marginLeft: -4 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#0f172a' },
+  
+  content: { flex: 1, paddingHorizontal: 20 },
+  
   empty: { alignItems: 'center', marginTop: 100 },
-  emptyText: { color: '#94A3B8', marginTop: 15, fontSize: 15, fontWeight: '600' },
-  teacherCard: { 
+  emptyText: { color: '#94a3b8', marginTop: 16, fontSize: 16, fontWeight: '500' },
+  
+  card: { 
     backgroundColor: '#fff', 
-    borderRadius: 18, 
-    padding: 15, 
-    marginBottom: 12, 
+    borderRadius: 20, 
+    padding: 16, 
+    marginBottom: 16, 
     flexDirection: 'row', 
     alignItems: 'center', 
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3
   },
-  avatar: { width: 45, height: 45, borderRadius: 15, backgroundColor: '#1a1d2e', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  avatarText: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  avatar: { 
+    width: 52, 
+    height: 52, 
+    borderRadius: 16, 
+    backgroundColor: '#e0e7ff', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginRight: 16 
+  },
+  avatarText: { color: '#3B3D6B', fontSize: 22, fontWeight: '800' },
   info: { flex: 1 },
-  name: { fontSize: 16, fontWeight: '700', color: '#1a1d2e' },
-  subjects: { fontSize: 12, color: '#64748b', marginTop: 2, fontWeight: '600' }
+  name: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 4 },
+  subjects: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center'
+  }
 });

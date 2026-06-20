@@ -1,11 +1,64 @@
 import { Drawer } from 'expo-router/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Image, Platform } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { supabase } from '../../lib/supabase';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname, useNavigation } from 'expo-router';
+import { DrawerActions } from '@react-navigation/native';
 import CraxLogoSvg from '../../components/CraxLogoSvg';
+
+function BottomTabBar() {
+  const router = useRouter();
+  const navigation = useNavigation();
+  const pathname = usePathname();
+
+  const isDashboard = pathname === '/' || pathname === '/index' || pathname === '/(student)' || pathname === '/(student)/index';
+  const isAcademics = pathname === '/documents' || pathname === '/(student)/documents';
+  const isAnnouncements = pathname === '/announcements' || pathname === '/(student)/announcements';
+  const isSchedule = pathname === '/timetable' || pathname === '/(student)/timetable';
+  const isChat = pathname.startsWith('/chat') || pathname.startsWith('/(student)/chat');
+
+  return (
+    <View style={styles.bottomTabBar}>
+      <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/(student)')}>
+         <View style={isDashboard ? styles.tabIconActiveBg : null}>
+            <Ionicons name="grid" size={isDashboard ? 20 : 24} color={isDashboard ? "#3B3D6B" : "#64748b"} />
+         </View>
+         <Text style={isDashboard ? styles.tabTextActive : styles.tabText}>Dashboard</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/(student)/documents')}>
+         <View style={isAcademics ? styles.tabIconActiveBg : null}>
+            <Ionicons name="library-outline" size={isAcademics ? 20 : 24} color={isAcademics ? "#3B3D6B" : "#64748b"} />
+         </View>
+         <Text style={isAcademics ? styles.tabTextActive : styles.tabText}>Academics</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/(student)/announcements')}>
+         <View style={isAnnouncements ? styles.tabIconActiveBg : null}>
+            <Ionicons name="megaphone-outline" size={isAnnouncements ? 20 : 24} color={isAnnouncements ? "#3B3D6B" : "#64748b"} />
+         </View>
+         <Text style={isAnnouncements ? styles.tabTextActive : styles.tabText}>Announcements</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/(student)/timetable')}>
+         <View style={isSchedule ? styles.tabIconActiveBg : null}>
+            <Ionicons name="calendar-outline" size={isSchedule ? 20 : 24} color={isSchedule ? "#3B3D6B" : "#64748b"} />
+         </View>
+         <Text style={isSchedule ? styles.tabTextActive : styles.tabText}>Schedule</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/(student)/chat/index')}>
+         <View style={isChat ? styles.tabIconActiveBg : null}>
+            <Ionicons name="chatbubbles-outline" size={isChat ? 20 : 24} color={isChat ? "#3B3D6B" : "#64748b"} />
+         </View>
+         <Text style={isChat ? styles.tabTextActive : styles.tabText}>Chat</Text>
+      </TouchableOpacity>
+
+    </View>
+  );
+}
 
 function CustomDrawerContent(props: any) {
   const router = useRouter();
@@ -174,7 +227,15 @@ export default function StudentLayout() {
             headerShown: false,
           }}
         />
+        <Drawer.Screen
+          name="announcements"
+          options={{
+            drawerItemStyle: { display: 'none' },
+            headerShown: false,
+          }}
+        />
       </Drawer>
+      <BottomTabBar />
     </GestureHandlerRootView>
   );
 }
@@ -216,4 +277,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F44336',
   },
+  bottomTabBar: { 
+    position: 'absolute', bottom: 0, left: 0, right: 0, 
+    backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
+    paddingVertical: 12, paddingBottom: Platform.OS === 'ios' ? 25 : 12,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 10
+  },
+  tabItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  tabIconActiveBg: { backgroundColor: '#e0e7ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginBottom: 4 },
+  tabTextActive: { fontSize: 10, fontWeight: '700', color: '#3B3D6B' },
+  tabText: { fontSize: 10, color: '#64748b', marginTop: 4, fontWeight: '500' }
 });

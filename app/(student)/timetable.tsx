@@ -61,12 +61,10 @@ export default function StudentTimetableScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="chevron-back" size={28} color="#0f172a" />
           </TouchableOpacity>
-          <View>
-            <Text style={styles.headerTitle}>My Timetable</Text>
-            <Text style={styles.headerSub}>Class schedule and periods</Text>
-          </View>
+          <Text style={styles.headerTitle}>Schedule</Text>
+          <View style={{ width: 28 }} />
         </View>
 
         <View style={styles.daysWrapper}>
@@ -87,12 +85,12 @@ export default function StudentTimetableScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {loading ? (
-          <View style={styles.center}><ActivityIndicator size="large" color="#1a1d2e" /></View>
+          <View style={styles.center}><ActivityIndicator size="large" color="#3B3D6B" /></View>
         ) : activePeriods.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Ionicons name="calendar-outline" size={48} color="#CBD5E1" />
+            <Ionicons name="calendar-outline" size={56} color="#cbd5e1" />
             <Text style={styles.emptyText}>No classes scheduled for this day</Text>
           </View>
         ) : (
@@ -107,13 +105,13 @@ export default function StudentTimetableScreen() {
                 </Text>
                 {!period.is_free_period && (
                   <View style={styles.teacherRow}>
-                    <Ionicons name="person-outline" size={14} color="#64748b" />
+                    <Ionicons name="person" size={14} color="#94a3b8" />
                     <Text style={styles.teacherText}>{period.teachers?.profiles?.full_name || 'TBA'}</Text>
                   </View>
                 )}
                 {period.room_no && (
                   <View style={styles.roomRow}>
-                    <Ionicons name="location-outline" size={14} color="#64748b" />
+                    <Ionicons name="location" size={14} color="#94a3b8" />
                     <Text style={styles.roomText}>{period.room_no}</Text>
                   </View>
                 )}
@@ -121,67 +119,76 @@ export default function StudentTimetableScreen() {
             </View>
           ))
         )}
-        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { flex: 1, backgroundColor: '#F8F9FE' },
   header: { 
-    backgroundColor: '#1a1d2e', 
-    paddingTop: Platform.OS === 'android' ? 40 : 15, 
-    paddingBottom: 20, 
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30
+    marginTop: Platform.OS === 'android' ? 50 : 60, 
+    marginBottom: 10,
   },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 15, paddingHorizontal: 20, marginBottom: 20 },
-  backBtn: { padding: 5 },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#fff' },
-  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
-  daysWrapper: { paddingLeft: 20 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingHorizontal: 20 },
+  backBtn: { padding: 4, marginLeft: -4 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#0f172a' },
+  
+  daysWrapper: { paddingLeft: 20, marginBottom: 10 },
   daysContainer: { gap: 10, paddingRight: 40 },
   dayCard: { 
-    paddingHorizontal: 20, 
-    paddingVertical: 10, 
+    paddingHorizontal: 22, 
+    paddingVertical: 12, 
     borderRadius: 20, 
-    backgroundColor: 'rgba(255,255,255,0.1)' 
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#f1f5f9'
   },
-  dayCardActive: { backgroundColor: '#fff' },
-  dayText: { color: 'rgba(255,255,255,0.7)', fontWeight: '700', fontSize: 14 },
-  dayTextActive: { color: '#1a1d2e', fontWeight: '800' },
-  content: { flex: 1, padding: 20 },
-  center: { marginTop: 50, alignItems: 'center' },
-  emptyCard: { backgroundColor: '#fff', borderRadius: 20, padding: 40, alignItems: 'center', justifyContent: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, marginTop: 20 },
-  emptyText: { color: '#94A3B8', fontSize: 15, fontWeight: '700', marginTop: 15, textAlign: 'center' },
+  dayCardActive: { 
+    backgroundColor: '#3B3D6B',
+    borderColor: '#3B3D6B',
+    shadowColor: '#3B3D6B', 
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.3, 
+    shadowRadius: 8, 
+    elevation: 4
+  },
+  dayText: { color: '#64748b', fontWeight: '600', fontSize: 15 },
+  dayTextActive: { color: '#fff', fontWeight: '700' },
+  
+  content: { flex: 1, paddingHorizontal: 20, paddingTop: 10 },
+  center: { marginTop: 100, alignItems: 'center' },
+  
+  emptyCard: { alignItems: 'center', marginTop: 100 },
+  emptyText: { color: '#94a3b8', fontSize: 16, fontWeight: '500', marginTop: 16, textAlign: 'center' },
+  
   periodCard: { 
     flexDirection: 'row', 
     backgroundColor: '#fff', 
-    borderRadius: 16, 
-    padding: 15, 
-    marginBottom: 15, 
-    elevation: 2, 
+    borderRadius: 20, 
+    padding: 16, 
+    marginBottom: 16, 
     shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 2 }, 
-    shadowOpacity: 0.05, 
-    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.04, 
+    shadowRadius: 8,
+    elevation: 3,
     alignItems: 'center'
   },
   periodNumber: { 
-    width: 45, 
-    height: 45, 
-    borderRadius: 22.5, 
-    backgroundColor: '#F1F5F9', 
+    width: 52, 
+    height: 52, 
+    borderRadius: 16, 
+    backgroundColor: '#e0e7ff', 
     justifyContent: 'center', 
     alignItems: 'center',
-    marginRight: 15
+    marginRight: 16
   },
-  periodNumText: { fontSize: 18, fontWeight: '900', color: '#1a1d2e' },
+  periodNumText: { fontSize: 20, fontWeight: '800', color: '#3B3D6B' },
   periodInfo: { flex: 1, justifyContent: 'center' },
-  subjectText: { fontSize: 16, fontWeight: '800', color: '#1e293b', marginBottom: 6 },
+  subjectText: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 6 },
   teacherRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  teacherText: { fontSize: 13, color: '#64748b', fontWeight: '600', marginLeft: 6 },
+  teacherText: { fontSize: 13, color: '#64748b', fontWeight: '500', marginLeft: 6 },
   roomRow: { flexDirection: 'row', alignItems: 'center' },
-  roomText: { fontSize: 13, color: '#64748b', fontWeight: '600', marginLeft: 6 }
+  roomText: { fontSize: 13, color: '#64748b', fontWeight: '500', marginLeft: 6 }
 });

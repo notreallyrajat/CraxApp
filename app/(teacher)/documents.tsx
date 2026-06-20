@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   noAccess: { fontSize: 11, color: '#94A3B8', fontStyle: 'italic' },
   manageBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#1a1d2e' },
   manageBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-  fab: { position: 'absolute', right: 20, bottom: 20, width: 60, height: 60, borderRadius: 30, backgroundColor: '#1a1d2e', justifyContent: 'center', alignItems: 'center', elevation: 4 },
+  fab: { position: 'absolute', right: 20, bottom: 100, width: 60, height: 60, borderRadius: 30, backgroundColor: '#3B3D6B', justifyContent: 'center', alignItems: 'center', shadowColor: '#3B3D6B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: '#fff', borderRadius: 24, padding: 24 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: '#1a1d2e', marginBottom: 20 },

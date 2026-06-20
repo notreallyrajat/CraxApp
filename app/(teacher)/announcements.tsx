@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   rejectionBox: { marginTop: 12, padding: 12, backgroundColor: '#FEF2F2', borderRadius: 10, borderLeftWidth: 3, borderLeftColor: '#EF4444' },
   rejectionTitle: { fontSize: 11, fontWeight: '800', color: '#991B1B' },
   rejectionBody: { fontSize: 11, color: '#B91C1C', marginTop: 2 },
-  fab: { position: 'absolute', right: 20, bottom: 20, width: 60, height: 60, borderRadius: 30, backgroundColor: '#1a1d2e', justifyContent: 'center', alignItems: 'center', elevation: 4 },
+  fab: { position: 'absolute', right: 20, bottom: 100, width: 60, height: 60, borderRadius: 30, backgroundColor: '#3B3D6B', justifyContent: 'center', alignItems: 'center', shadowColor: '#3B3D6B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: '#fff', borderRadius: 24, padding: 24 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: '#1a1d2e', marginBottom: 20 },

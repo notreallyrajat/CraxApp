@@ -93,10 +93,29 @@ export async function getStudentStats(studentId: string, classId: string) {
   
   const gpa = calculateGPA(formattedResults);
 
+  // 4. Get pending assignments
+  const { data: assignments } = await supabase
+    .from('assignments')
+    .select('id')
+    .eq('class_id', classId)
+    .gte('due_date', new Date().toISOString());
+
+  // 5. Get upcoming exams
+  const { data: exams } = await supabase
+    .from('exams')
+    .select('title, start_date')
+    .eq('class_id', classId)
+    .gte('start_date', new Date().toISOString())
+    .order('start_date', { ascending: true })
+    .limit(1);
+
+  const nextExam = exams && exams.length > 0 ? exams[0] : null;
+
   return {
     attendanceRate,
     totalSubjects: subjectCount || 0,
-    pendingAssignments: 2, 
-    gpa
+    pendingAssignments: assignments?.length || 0, 
+    gpa,
+    nextExam
   };
 }
