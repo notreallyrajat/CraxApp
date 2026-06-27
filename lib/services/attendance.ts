@@ -29,6 +29,9 @@ export async function getSessionsForClass(classId: string, sectionId?: string) {
       id,
       session_date,
       created_at,
+      locked_at,
+      unlock_request_status,
+      unlock_reason,
       sections ( id, name )
     `)
     .eq('class_id', classId)
@@ -44,7 +47,7 @@ export async function getSessionsForClass(classId: string, sectionId?: string) {
 export async function getOrCreateSession(classId: string, sectionId: string | undefined, sessionDate: string) {
   let query = supabase
     .from('attendance_sessions')
-    .select('id, session_date')
+    .select('id, session_date, locked_at, unlock_request_status, unlock_reason')
     .eq('class_id', classId)
     .eq('session_date', sessionDate);
 
@@ -117,6 +120,55 @@ export async function upsertRecord(data: {
     .single();
 }
 
+export async function requestSessionUnlock(sessionId: string, reason: string) {
+  return supabase
+    .from('attendance_sessions')
+    .update({
+      unlock_request_status: 'pending',
+      unlock_reason: reason,
+      unlock_requested_at: new Date().toISOString()
+    })
+    .eq('id', sessionId);
+}
+
+export async function approveSessionUnlock(sessionId: string) {
+  // Give them a fresh 30-minute window
+  const lockedAt = new Date();
+  lockedAt.setMinutes(lockedAt.getMinutes() + 30);
+  
+  return supabase
+    .from('attendance_sessions')
+    .update({
+      unlock_request_status: 'approved',
+      locked_at: lockedAt.toISOString()
+    })
+    .eq('id', sessionId);
+}
+
+export async function rejectSessionUnlock(sessionId: string) {
+  return supabase
+    .from('attendance_sessions')
+    .update({
+      unlock_request_status: 'rejected'
+    })
+    .eq('id', sessionId);
+}
+
+export async function getPendingUnlockRequests() {
+  return supabase
+    .from('attendance_sessions')
+    .select(`
+      id,
+      session_date,
+      unlock_reason,
+      unlock_requested_at,
+      classes ( id, name ),
+      sections ( id, name )
+    `)
+    .eq('unlock_request_status', 'pending')
+    .order('unlock_requested_at', { ascending: false });
+}
+
 export async function saveAllRecords(
   sessionId: string,
   records: Array<{
@@ -125,12 +177,29 @@ export async function saveAllRecords(
     remark?: string;
   }>
 ) {
+  const { data: session } = await supabase.from('attendance_sessions').select('locked_at, unlock_request_status').eq('id', sessionId).single();
+  
+  if (session?.locked_at && new Date(session.locked_at) < new Date() && session?.unlock_request_status !== 'approved') {
+    return { error: { message: "Session is locked. Please request an unlock from the admin." } };
+  }
+
   const results = await Promise.all(
     records.map((r) =>
       upsertRecord({ sessionId, studentId: r.studentId, status: r.status, remark: r.remark })
     )
   );
+  
   const firstError = results.find((r) => r.error);
+
+  if (!session?.locked_at || session?.unlock_request_status === 'approved') {
+    const lockedAt = new Date();
+    lockedAt.setMinutes(lockedAt.getMinutes() + 30);
+    await supabase.from('attendance_sessions').update({ 
+      locked_at: lockedAt.toISOString(),
+      unlock_request_status: 'none'
+    }).eq('id', sessionId);
+  }
+
   return { error: firstError?.error ?? null };
 }
 

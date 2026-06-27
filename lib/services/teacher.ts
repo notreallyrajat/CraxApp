@@ -57,6 +57,17 @@ export async function getAssignedClasses(teacherId: string) {
     .eq('teacher_id', teacherId);
 }
 
+export async function getClassTeacherAssignments(teacherId: string) {
+  return supabase
+    .from('class_teachers')
+    .select(`
+      id,
+      class_id,
+      classes ( id, name, code )
+    `)
+    .eq('teacher_id', teacherId);
+}
+
 export async function getStudentsForTeacher(teacherId: string) {
   const { data: assignments } = await supabase
     .from('teacher_assignments')

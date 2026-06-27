@@ -13,7 +13,15 @@ export default function RootLayout() {
 
   useEffect(() => {
     // 1. Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        const errorMessage = error.message?.toLowerCase() || '';
+        if (errorMessage.includes('fetch') || errorMessage.includes('network')) {
+          router.replace('/network-error');
+        } else if (errorMessage.includes('database') || errorMessage.includes('connection')) {
+          router.replace('/database-error');
+        }
+      }
       setSession(session);
       setIsLoading(false);
     });
@@ -31,8 +39,9 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const isLoginPage = segments[0] === 'login';
+    const isErrorPage = segments[0] === 'network-error' || segments[0] === 'database-error';
     
-    if (!session && !isLoginPage && !inAuthGroup) {
+    if (!session && !isLoginPage && !inAuthGroup && !isErrorPage) {
       // Redirect to login if not authenticated
       router.replace('/login');
     } else if (session && (isLoginPage || segments.length === 0)) {
@@ -70,9 +79,16 @@ export default function RootLayout() {
       else if (role === 'teacher') router.replace('/(teacher)');
       else if (role === 'student') router.replace('/(student)');
       else router.replace('/login');
-    } catch (e) {
+    } catch (e: any) {
       console.error("Navigation error:", e);
-      router.replace('/login');
+      const errorMessage = String(e?.message || e).toLowerCase();
+      if (errorMessage.includes('fetch') || errorMessage.includes('network request failed')) {
+        router.replace('/network-error');
+      } else if (errorMessage.includes('database') || errorMessage.includes('connection') || e?.code === 'PGRST') {
+        router.replace('/database-error');
+      } else {
+        router.replace('/login');
+      }
     }
   };
 

@@ -47,6 +47,8 @@ export default function TeacherDashboard() {
   const router = useRouter();
   const navigation = useNavigation();
 
+  const [assignedClasses, setAssignedClasses] = useState<any[]>([]);
+
   const loadData = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -64,6 +66,19 @@ export default function TeacherDashboard() {
           .select('*').eq('status', 'approved').eq('is_published', true).order('created_at', { ascending: false }).limit(3);
 
         setAnnouncements(annRes || []);
+        
+        // Fetch assigned classes for the quick attendance module
+        const classesRes = await getAssignedClasses(profile.teachers.id);
+        if (classesRes.data) {
+          const uniqueClasses = new Map();
+          classesRes.data.forEach((c: any) => {
+             const key = `${c.class_id}_${c.section_id}`;
+             if (!uniqueClasses.has(key)) {
+                uniqueClasses.set(key, c);
+             }
+          });
+          setAssignedClasses(Array.from(uniqueClasses.values()));
+        }
       }
     } catch (error) {
       console.error("Error loading teacher dashboard:", error);
@@ -102,6 +117,13 @@ export default function TeacherDashboard() {
   const firstName = teacher?.full_name?.split(" ")[0] || 'Teacher';
   const attendanceVal = stats.attendanceRate || 92; // fallback
   
+  const getDepartment = (dept: any) => {
+    if (!dept) return 'Faculty';
+    if (Array.isArray(dept)) return dept.join(', ');
+    if (typeof dept === 'string') return dept.replace(/[{}"']/g, '').split(',').join(', ');
+    return String(dept);
+  };
+  
   const radius = 28;
   const strokeWidth = 5;
   const circumference = 2 * Math.PI * radius;
@@ -136,8 +158,7 @@ export default function TeacherDashboard() {
       <ScrollView 
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B3D6B']} />}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* Header Section */}
         <View style={styles.header}>
@@ -156,7 +177,7 @@ export default function TeacherDashboard() {
              <Image source={selectedAvatar} style={styles.idCardPic} />
              <View style={styles.idCardInfo}>
                <Text style={styles.idCardName} numberOfLines={1}>{teacher?.full_name || 'Teacher Name'}</Text>
-               <Text style={styles.idCardClass}>{teacher?.department || 'Faculty'} | ID: {teacher?.employee_id || 'T-100'}</Text>
+               <Text style={styles.idCardClass} numberOfLines={1}>{getDepartment(teacher?.department)} | ID: {teacher?.employee_id || 'T-100'}</Text>
              </View>
           </View>
           <View style={styles.idCardRight}>
@@ -210,52 +231,29 @@ export default function TeacherDashboard() {
            </View>
         </View>
 
-        {/* Quick Actions Scroll */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickActionsScroll}>
-           <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(teacher)/attendance')}>
-              <View style={styles.quickActionIcon}><Ionicons name="checkmark-done" size={24} color="#1e293b" /></View>
-              <Text style={styles.quickActionText}>Attendance</Text>
-           </TouchableOpacity>
-           <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(teacher)/assignments')}>
-              <View style={[styles.quickActionIcon, { backgroundColor: '#e0e7ff' }]}><Ionicons name="document-text" size={24} color="#3B3D6B" /></View>
-              <Text style={styles.quickActionText}>Assignments</Text>
-           </TouchableOpacity>
-           <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(teacher)/documents')}>
-              <View style={styles.quickActionIcon}><Ionicons name="folder-open" size={24} color="#1e293b" /></View>
-              <Text style={styles.quickActionText}>Resources</Text>
-           </TouchableOpacity>
-           <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(teacher)/chat')}>
-              <View style={[styles.quickActionIcon, { backgroundColor: '#e0e7ff' }]}><Ionicons name="chatbubbles" size={24} color="#3B3D6B" /></View>
-              <Text style={styles.quickActionText}>Messages</Text>
-           </TouchableOpacity>
-        </ScrollView>
-
-        {/* Announcements */}
-        <View style={styles.sectionHeader}>
-           <Text style={styles.sectionTitleText}>Notice Board</Text>
-           <TouchableOpacity onPress={() => router.push('/(teacher)/announcements')}>
-             <Text style={styles.seeAllText}>View All</Text>
-           </TouchableOpacity>
-        </View>
-
-        <View style={styles.announcementsWrapper}>
-           {announcements.length > 0 ? announcements.map((ann, index) => (
-             <TouchableOpacity key={ann.id || index} style={styles.annCard} onPress={() => router.push('/(teacher)/announcements')}>
-               <View style={styles.annTextCol}>
-                 <Text style={styles.annTitle} numberOfLines={2}>{ann.title}</Text>
-                 <Text style={styles.annDate}>{new Date(ann.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
-               </View>
-               <View style={styles.dateBadge}>
-                 <Text style={styles.dbMonth}>{new Date(ann.created_at).toLocaleDateString('en-US', { month: 'short' })}</Text>
-                 <Text style={styles.dbDay}>{new Date(ann.created_at).getDate()}</Text>
-               </View>
-             </TouchableOpacity>
-           )) : (
-             <View style={[styles.annCard, { width: width - 40, justifyContent: 'center' }]}>
-               <Text style={{ color: '#94a3b8', fontSize: 14, fontWeight: '500', textAlign: 'center' }}>No recent announcements</Text>
-             </View>
-           )}
-        </View>
+         {/* Quick Actions Grid */}
+         <View style={styles.quickActionsGrid}>
+            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(teacher)/attendance')}>
+               <View style={[styles.quickActionIcon, { backgroundColor: '#DBEAFE' }]}><Ionicons name="checkmark-done" size={24} color="#3B82F6" /></View>
+               <Text style={styles.quickActionText} numberOfLines={1}>Attendance</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(teacher)/assignments')}>
+               <View style={[styles.quickActionIcon, { backgroundColor: '#F3E8FF' }]}><Ionicons name="document-text" size={24} color="#8B5CF6" /></View>
+               <Text style={styles.quickActionText} numberOfLines={1}>Assignments</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(teacher)/documents')}>
+               <View style={[styles.quickActionIcon, { backgroundColor: '#E0E7FF' }]}><Ionicons name="folder-open" size={24} color="#4F46E5" /></View>
+               <Text style={styles.quickActionText} numberOfLines={1}>Resources</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(teacher)/marks')}>
+               <View style={[styles.quickActionIcon, { backgroundColor: '#FEF3C7' }]}><Ionicons name="star" size={24} color="#D97706" /></View>
+               <Text style={styles.quickActionText} numberOfLines={1}>Marks</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(teacher)/chat')}>
+               <View style={[styles.quickActionIcon, { backgroundColor: '#FCE7F3' }]}><Ionicons name="chatbubbles" size={24} color="#BE185D" /></View>
+               <Text style={styles.quickActionText} numberOfLines={1}>Messages</Text>
+            </TouchableOpacity>
+         </View>
 
       </ScrollView>
     </View>
@@ -265,50 +263,47 @@ export default function TeacherDashboard() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FE' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FE' },
-  content: { flex: 1 },
+  content: { flex: 1, paddingBottom: 90 },
   
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 20 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 16 },
   greetingText: { fontSize: 14, color: '#64748b', fontWeight: '600', marginBottom: 4 },
   nameText: { fontSize: 28, fontWeight: '800', color: '#1e293b', letterSpacing: -0.5 },
   profilePicContainer: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
   profilePic: { width: 50, height: 50, borderRadius: 25 },
   
-  idCard: { marginHorizontal: 20, backgroundColor: '#fff', borderRadius: 24, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#3B3D6B', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.06, shadowRadius: 20, elevation: 5, marginBottom: 30 },
-  idCardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  idCard: { marginHorizontal: 20, backgroundColor: '#fff', borderRadius: 24, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#3B3D6B', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.06, shadowRadius: 20, elevation: 5, marginBottom: 20 },
+  idCardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 10 },
   idCardPic: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#f1f5f9', marginRight: 16 },
   idCardInfo: { flex: 1 },
   idCardName: { fontSize: 18, fontWeight: '800', color: '#1e293b', marginBottom: 4 },
   idCardClass: { fontSize: 13, color: '#64748b', fontWeight: '600' },
+  idCardRight: { alignItems: 'flex-end', justifyContent: 'center' },
   
   attendanceChartContainer: { position: 'relative', width: 72, height: 72, justifyContent: 'center', alignItems: 'center' },
   attendanceTextContainer: { position: 'absolute', justifyContent: 'center', alignItems: 'center' },
   attendanceLabelText: { fontSize: 9, color: '#64748b', fontWeight: '700', textTransform: 'uppercase' },
   attendanceValueText: { fontSize: 14, fontWeight: '800', color: '#3B3D6B', marginTop: 1 },
   
-  statsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 30 },
+  statsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 20 },
   statCardSmall: { width: (width - 55) / 2, backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 15, position: 'relative', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
   statLabelTop: { fontSize: 13, color: '#64748b', fontWeight: '700', marginBottom: 12, lineHeight: 18 },
   statIconBadge: { position: 'absolute', top: 16, right: 16, width: 32, height: 32, borderRadius: 16, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
   statValueMid: { fontSize: 28, fontWeight: '800', color: '#1e293b' },
   statValueSmall: { fontSize: 15, fontWeight: '800', color: '#1e293b', marginTop: 8 },
   
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 16 },
-  sectionTitleText: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
-  seeAllText: { fontSize: 14, color: '#3B3D6B', fontWeight: '700' },
+  sectionTitleText: { fontSize: 15, fontWeight: '800', color: '#1e293b', marginBottom: 12 },
   
-  announcementsWrapper: { paddingHorizontal: 20 },
-  annCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
-  annTextCol: { flex: 1, paddingRight: 16 },
-  annTitle: { fontSize: 15, fontWeight: '700', color: '#1e293b', marginBottom: 6, lineHeight: 22 },
-  annDate: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
-  dateBadge: { width: 54, height: 54, borderRadius: 16, backgroundColor: '#f8fafc', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
-  dbMonth: { fontSize: 11, color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
-  dbDay: { fontSize: 18, fontWeight: '800', color: '#3B3D6B' },
-  
-  quickActionsScroll: { marginBottom: 30, paddingBottom: 10, flexDirection: 'row', paddingHorizontal: 20 },
-  quickActionItem: { alignItems: 'center', marginRight: 22 },
+  quickActionsGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    paddingHorizontal: 20, 
+    marginBottom: 20, 
+    justifyContent: 'flex-start',
+    gap: 12
+  },
+  quickActionItem: { alignItems: 'center', width: '22%', marginBottom: 16 },
   quickActionIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  quickActionText: { fontSize: 13, color: '#334155', fontWeight: '600' },
+  quickActionText: { fontSize: 11, color: '#334155', fontWeight: '700' },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '85%', backgroundColor: '#fff', borderRadius: 24, padding: 24, alignItems: 'center' },

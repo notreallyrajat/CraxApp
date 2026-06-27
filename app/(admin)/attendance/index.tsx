@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { useRouter, useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { supabase } from '../../../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { getPendingUnlockRequests, approveSessionUnlock, rejectSessionUnlock } from '../../../lib/services/attendance';
 
 type Teacher = {
   id: string;
@@ -27,8 +28,15 @@ export default function AttendanceModule() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState(true);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [unlockRequests, setUnlockRequests] = useState<any[]>([]);
+
+  const loadRequests = async () => {
+    const { data } = await getPendingUnlockRequests();
+    setUnlockRequests(data || []);
+  };
 
   useEffect(() => {
+    loadRequests();
     async function loadTeachers() {
       const { data, error } = await supabase.from('teachers').select('id, employee_id, department, profiles(full_name)');
       if (!error && data) setTeachers(data as unknown as Teacher[]);
@@ -55,6 +63,18 @@ export default function AttendanceModule() {
     loadAssignments();
   }, [selectedTeacherId]);
 
+  const handleApprove = async (id: string) => {
+    await approveSessionUnlock(id);
+    Alert.alert("Approved", "Session unlocked for 30 minutes.");
+    loadRequests();
+  };
+
+  const handleReject = async (id: string) => {
+    await rejectSessionUnlock(id);
+    Alert.alert("Rejected", "Unlock request denied.");
+    loadRequests();
+  };
+
   return (
     <View style={styles.container}>
       {/* Royal Blue Header */}
@@ -67,6 +87,29 @@ export default function AttendanceModule() {
       </View>
 
       <View style={styles.content}>
+        {unlockRequests.length > 0 && (
+          <View style={{ marginBottom: 20 }}>
+            <Text style={[styles.sectionTitle, { color: '#B71C1C' }]}>Pending Unlock Requests ({unlockRequests.length})</Text>
+            {unlockRequests.map(req => (
+              <View key={req.id} style={styles.requestCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.reqClassText}>{req.classes?.name} {req.sections ? `- Sec ${req.sections.name}` : ''}</Text>
+                  <Text style={styles.reqDateText}>Session: {req.session_date}</Text>
+                  <Text style={styles.reqReasonText}>Reason: {req.unlock_reason}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity style={styles.approveBtn} onPress={() => handleApprove(req.id)}>
+                    <Ionicons name="checkmark" size={18} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.rejectBtn} onPress={() => handleReject(req.id)}>
+                    <Ionicons name="close" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         <Text style={styles.sectionTitle}>Select Teacher</Text>
         
         {loadingTeachers ? (
@@ -243,4 +286,10 @@ const styles = StyleSheet.create({
     fontSize: 12, 
     fontWeight: '800' 
   },
+  requestCard: { backgroundColor: '#FFEBEE', padding: 12, borderRadius: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  reqClassText: { fontSize: 14, fontWeight: '800', color: '#B71C1C', marginBottom: 2 },
+  reqDateText: { fontSize: 12, color: '#D32F2F', fontWeight: '600', marginBottom: 2 },
+  reqReasonText: { fontSize: 12, color: '#D32F2F', fontStyle: 'italic' },
+  approveBtn: { backgroundColor: '#4CAF50', padding: 8, borderRadius: 8 },
+  rejectBtn: { backgroundColor: '#EF4444', padding: 8, borderRadius: 8 },
 });

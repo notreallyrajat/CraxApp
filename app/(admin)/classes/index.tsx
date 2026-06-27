@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, Modal, Alert, Platform } from 'react-native';
 import { useRouter, useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { supabase } from '../../../lib/supabase';
@@ -183,105 +183,109 @@ export default function ClassesScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Royal Blue Header */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={styles.backButton}>
-            <Ionicons name="menu" size={26} color="#FFFFFF" />
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 16 }}>
+            <Ionicons name="menu" size={32} color="#1e293b" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Academic Classes</Text>
-          <View style={styles.backButton} />
+          <View>
+            <Text style={styles.headerSub}>Manage Institution</Text>
+            <Text style={styles.headerTitle}>Classes</Text>
+          </View>
         </View>
-        <View style={styles.headerStats}>
-          <Text style={styles.headerCount}>{classes.length}</Text>
-          <Text style={styles.headerSubtitle}>Total Classes Configured</Text>
+        <View style={styles.badgeContainer}>
+          <Text style={styles.badgeText}>{classes.length} Total</Text>
         </View>
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0047AB" />
+          <ActivityIndicator size="large" color="#3B3D6B" />
         </View>
       ) : classes.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconCircle}>
-            <Ionicons name="book" size={40} color="#0047AB" />
-          </View>
-          <Text style={styles.emptyTitle}>No classes yet</Text>
-          <Text style={styles.emptyText}>Get started by creating your first academic class.</Text>
-          <TouchableOpacity style={styles.emptyAddButton} onPress={() => setModalVisible(true)}>
-            <Text style={styles.emptyAddButtonText}>Add Class</Text>
-          </TouchableOpacity>
+          <Ionicons name="school-outline" size={64} color="#CBD5E1" />
+          <Text style={styles.emptyTitle}>No Classes Configured</Text>
+          <Text style={styles.emptyText}>Get started by adding an academic class.</Text>
         </View>
       ) : (
         <FlatList
           data={classes}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <TouchableOpacity 
               style={styles.card}
               activeOpacity={0.7}
               onPress={() => router.push(`/(admin)/classes/${item.id}?name=${encodeURIComponent(item.name)}&code=${encodeURIComponent(item.code || '')}`)}
             >
-              <View style={[styles.iconBlock, { backgroundColor: '#FFF3E0' }]}>
-                <Ionicons name="book" size={24} color="#FF9800" />
+              <View style={styles.cardLeft}>
+                <View style={styles.iconBlock}>
+                  <Ionicons name="book" size={24} color="#3B3D6B" />
+                </View>
+                <View style={styles.cardInfo}>
+                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  {item.code ? (
+                    <Text style={styles.cardSubtitle}>Code: {item.code}</Text>
+                  ) : (
+                    <Text style={styles.cardSubtitle}>No code assigned</Text>
+                  )}
+                </View>
               </View>
-              <View style={styles.cardInfo}>
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                {item.code ? (
-                  <View style={styles.pillBadge}>
-                    <Text style={styles.pillText}>{item.code}</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.cardSubtitle}>No code</Text>
-                )}
+              
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity 
+                  style={styles.deleteButton}
+                  onPress={() => confirmDelete(item.id, item.name)}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                </TouchableOpacity>
+                <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
               </View>
-              <TouchableOpacity 
-                style={styles.deleteButton}
-                onPress={() => confirmDelete(item.id, item.name)}
-              >
-                <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-              </TouchableOpacity>
-              <Ionicons name="chevron-forward" size={20} color="#D1D5DB" />
             </TouchableOpacity>
           )}
         />
       )}
 
-      {/* EdTech Royal Blue Bottom Button */}
+      {/* Floating Action Buttons */}
       <View style={styles.bottomFixedContainer}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <TouchableOpacity 
-            style={[styles.primaryButton, { flex: 1, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#0047AB' }]} 
+            style={[styles.primaryButton, { flex: 1, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#3B3D6B' }]} 
             onPress={handleCsvUpload} 
             disabled={uploadingCsv}
             activeOpacity={0.8}
           >
             {uploadingCsv ? (
-              <ActivityIndicator size="small" color="#0047AB" />
+              <ActivityIndicator size="small" color="#3B3D6B" />
             ) : (
-              <Text style={[styles.primaryButtonText, { color: '#0047AB' }]}>Upload CSV</Text>
+              <Text style={[styles.primaryButtonText, { color: '#3B3D6B' }]}>Upload CSV</Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity style={[styles.primaryButton, { flex: 1 }]} onPress={() => setModalVisible(true)} activeOpacity={0.8}>
-            <Text style={styles.primaryButtonText}>Add New Class</Text>
+            <Text style={styles.primaryButtonText}>Add Class</Text>
           </TouchableOpacity>
         </View>
       </View>
 
+      {/* Add Class Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalDragIndicator} />
-            <Text style={styles.modalTitle}>Create Class</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create Class</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtnIcon}>
+                <Ionicons name="close" size={24} color="#1e293b" />
+              </TouchableOpacity>
+            </View>
             
             <View style={styles.formGroup}>
               <Text style={styles.label}>Class Name</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Grade 10"
-                placeholderTextColor="#A0A0A0"
+                placeholderTextColor="#94a3b8"
                 value={name}
                 onChangeText={setName}
               />
@@ -292,20 +296,15 @@ export default function ClassesScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="e.g. G10"
-                placeholderTextColor="#A0A0A0"
+                placeholderTextColor="#94a3b8"
                 value={code}
                 onChangeText={setCode}
               />
             </View>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelTextButton} onPress={() => setModalVisible(false)}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.primaryButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]} onPress={handleCreate} disabled={creating} activeOpacity={0.8}>
-                <Text style={styles.primaryButtonText}>{creating ? 'Saving...' : 'Create Class'}</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={styles.submitBtn} onPress={handleCreate} disabled={creating} activeOpacity={0.8}>
+              {creating ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Save Class</Text>}
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -314,8 +313,12 @@ export default function ClassesScreen() {
       <Modal visible={previewModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { height: '80%' }]}>
-            <View style={styles.modalDragIndicator} />
-            <Text style={styles.modalTitle}>Review CSV Data</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Review CSV Data</Text>
+              <TouchableOpacity onPress={() => setPreviewModalVisible(false)} style={styles.closeBtnIcon}>
+                <Ionicons name="close" size={24} color="#1e293b" />
+              </TouchableOpacity>
+            </View>
             
             <View style={styles.previewHeaderRow}>
               <Text style={[styles.previewHeaderText, { flex: 2 }]}>Class Name</Text>
@@ -326,6 +329,7 @@ export default function ClassesScreen() {
               data={previewData}
               keyExtractor={(_, index) => index.toString()}
               style={{ flex: 1, marginBottom: 16 }}
+              showsVerticalScrollIndicator={false}
               renderItem={({ item, index }) => (
                 <View style={styles.previewRow}>
                   <TextInput
@@ -344,14 +348,9 @@ export default function ClassesScreen() {
               )}
             />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelTextButton} onPress={() => setPreviewModalVisible(false)}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.primaryButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]} onPress={confirmCsvUpload} disabled={uploadingCsv} activeOpacity={0.8}>
-                <Text style={styles.primaryButtonText}>{uploadingCsv ? 'Uploading...' : 'Confirm Upload'}</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={styles.submitBtn} onPress={confirmCsvUpload} disabled={uploadingCsv} activeOpacity={0.8}>
+              {uploadingCsv ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Confirm Upload</Text>}
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -360,134 +359,106 @@ export default function ClassesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F6F8' }, // EdTech gray bg
-  header: {
-    backgroundColor: '#0047AB',
-    paddingTop: 50,
-    paddingBottom: 24,
-    paddingHorizontal: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+  container: { flex: 1, backgroundColor: '#F8F9FE' },
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20, 
+    paddingTop: Platform.OS === 'ios' ? 60 : 40, 
+    paddingBottom: 20 
   },
-  headerTop: {
+  headerSub: { fontSize: 14, color: '#64748b', fontWeight: '600', marginBottom: 4 },
+  headerTitle: { fontSize: 28, fontWeight: '800', color: '#1e293b', letterSpacing: -0.5 },
+  badgeContainer: { backgroundColor: '#e0e7ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  badgeText: { color: '#3B3D6B', fontSize: 12, fontWeight: '700' },
+  
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40, marginTop: -100 },
+  emptyTitle: { fontSize: 20, fontWeight: '800', color: '#1e293b', marginTop: 16, marginBottom: 8 },
+  emptyText: { fontSize: 14, color: '#64748b', textAlign: 'center', lineHeight: 22 },
+  
+  listContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    shadowColor: '#3B3D6B',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
+    elevation: 5,
   },
-  headerStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerCount: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    marginRight: 10,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: '600',
-    flex: 1,
-  },
-  backButton: { width: 36, height: 36, justifyContent: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
-  emptyIconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#E8F0FE', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  emptyTitle: { fontSize: 20, fontWeight: '800', color: '#1C1C1E', marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#8E8E93', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
-  emptyAddButton: { backgroundColor: '#0047AB', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 100 },
-  emptyAddButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
-  listContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+  cardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   iconBlock: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   cardInfo: { flex: 1 },
-  deleteButton: { padding: 8, marginRight: 4 },
-  cardTitle: { fontSize: 15, fontWeight: '800', color: '#1C1C1E', marginBottom: 4 },
-  cardSubtitle: { fontSize: 12, color: '#8E8E93', fontWeight: '500' },
-  pillBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-  },
-  pillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0047AB',
-  },
+  deleteButton: { padding: 8, marginRight: 8, backgroundColor: '#FEF2F2', borderRadius: 10 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: '#1e293b', marginBottom: 4 },
+  cardSubtitle: { fontSize: 13, color: '#64748b', fontWeight: '600' },
+  
   bottomFixedContainer: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
-    paddingBottom: 24,
+    bottom: 0, left: 0, right: 0,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
     paddingTop: 16,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(248, 249, 254, 0.9)',
   },
   primaryButton: {
-    backgroundColor: '#0047AB',
-    borderRadius: 100,
-    paddingVertical: 14,
+    backgroundColor: '#3B3D6B',
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0047AB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowColor: '#3B3D6B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
     elevation: 4,
   },
   primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'flex-end' },
+  
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
   modalContent: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     padding: 24,
-    paddingBottom: 48,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
   },
-  modalDragIndicator: { width: 40, height: 4, backgroundColor: '#E5E5E5', borderRadius: 2, alignSelf: 'center', marginBottom: 24 },
-  modalTitle: { fontSize: 22, fontWeight: '800', color: '#1C1C1E', marginBottom: 24, textAlign: 'center' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  modalTitle: { fontSize: 22, fontWeight: '800', color: '#1e293b' },
+  closeBtnIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  
   formGroup: { marginBottom: 20 },
-  label: { fontSize: 14, fontWeight: '600', color: '#1C1C1E', marginBottom: 8, marginLeft: 4 },
+  label: { fontSize: 14, fontWeight: '700', color: '#334155', marginBottom: 10, marginLeft: 4 },
   input: {
-    backgroundColor: '#F4F6F8',
+    backgroundColor: '#f8fafc',
     borderRadius: 16,
-    padding: 18,
+    padding: 16,
     fontSize: 15,
-    color: '#1C1C1E',
-    fontWeight: '500',
+    color: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
-  modalActions: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
-  cancelTextButton: { paddingVertical: 16, paddingHorizontal: 20, marginRight: 10 },
-  cancelText: { color: '#8E8E93', fontWeight: '700', fontSize: 15 },
-  previewHeaderRow: { flexDirection: 'row', paddingHorizontal: 4, marginBottom: 8 },
-  previewHeaderText: { fontSize: 13, fontWeight: '700', color: '#8E8E93' },
-  previewRow: { flexDirection: 'row', marginBottom: 8 },
-  previewInput: { backgroundColor: '#F4F6F8', borderRadius: 8, padding: 12, fontSize: 14, color: '#1C1C1E', fontWeight: '500' },
+  
+  submitBtn: { backgroundColor: '#3B3D6B', padding: 18, borderRadius: 16, marginTop: 20, alignItems: 'center', shadowColor: '#3B3D6B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+  submitBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  
+  previewHeaderRow: { flexDirection: 'row', paddingHorizontal: 4, marginBottom: 12 },
+  previewHeaderText: { fontSize: 13, fontWeight: '700', color: '#64748b' },
+  previewRow: { flexDirection: 'row', marginBottom: 10 },
+  previewInput: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, fontSize: 14, color: '#1e293b', borderWidth: 1, borderColor: '#f1f5f9' },
 });

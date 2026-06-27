@@ -10,12 +10,13 @@ import {
   Alert,
   TextInput,
   Modal,
-  Platform
+  Platform,
+  BackHandler
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-import { getAssignedClasses, getTeacherProfile } from '../../lib/services/teacher';
+import { getClassTeacherAssignments, getTeacherProfile } from '../../lib/services/teacher';
 import { 
   getSessionsForClass, 
   getOrCreateSession, 
@@ -40,6 +41,7 @@ export default function TeacherAttendanceScreen() {
   const [saving, setSaving] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const router = useRouter();
@@ -51,13 +53,18 @@ export default function TeacherAttendanceScreen() {
     const { data: profile } = await getTeacherProfile(session.user.id);
     if (profile?.teachers) {
       setTeacher(profile.teachers);
-      const classesRes = await getAssignedClasses(profile.teachers.id);
-      const classTeacherRoles = (classesRes.data || []).filter(c => c.is_class_teacher);
-      setAssignedClasses(classTeacherRoles);
+      const classesRes = await getClassTeacherAssignments(profile.teachers.id);
+      
+      const validClasses = (classesRes.data || []).map((c: any) => ({
+         ...c,
+         section_id: null,
+         sections: null
+      }));
+      setAssignedClasses(validClasses);
       
       // Check if we came from dashboard with specific class
       if (params.classId) {
-        const target = classTeacherRoles.find(c => c.class_id === params.classId);
+        const target = validClasses.find(c => c.class_id === params.classId);
         if (target) openClass(target);
       }
     }
@@ -98,6 +105,7 @@ export default function TeacherAttendanceScreen() {
 
   const openSession = async (session: any) => {
     setActiveSession(session);
+    setHasUnsavedChanges(false);
     setView('take');
     setLoading(true);
     try {
@@ -134,6 +142,7 @@ export default function TeacherAttendanceScreen() {
 
   const setStatus = (sid: string, status: AttendanceStatus) => {
     setRows(prev => prev.map(r => r.studentId === sid ? { ...r, status } : r));
+    setHasUnsavedChanges(true);
   };
 
   const handleSave = async () => {
@@ -145,6 +154,7 @@ export default function TeacherAttendanceScreen() {
         remark: r.remark || undefined
       })));
       if (error) throw error;
+      setHasUnsavedChanges(false);
       Alert.alert("Success", "Attendance saved successfully!");
       setView('sessions');
       openClass(activeClass); // Refresh
@@ -154,6 +164,55 @@ export default function TeacherAttendanceScreen() {
       setSaving(false);
     }
   };
+
+  const handleBack = () => {
+    if (view === 'take' && hasUnsavedChanges) {
+      Alert.alert(
+        "Unsaved Changes",
+        "Wanna go back? Save changes or not save changes?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Not Save Changes", style: "destructive", onPress: () => { setHasUnsavedChanges(false); setView('sessions'); } },
+          { text: "Save Changes", onPress: () => handleSave() }
+        ]
+      );
+      return;
+    }
+    
+    if (view === 'classes') router.back();
+    else if (view === 'sessions') setView('classes');
+    else setView('sessions');
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (view === 'take' && hasUnsavedChanges) {
+        Alert.alert(
+          "Unsaved Changes",
+          "Wanna go back? Save changes or not save changes?",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Not Save Changes", style: "destructive", onPress: () => { setHasUnsavedChanges(false); setView('sessions'); } },
+            { text: "Save Changes", onPress: () => handleSave() }
+          ]
+        );
+        return true;
+      }
+      
+      if (view === 'take') {
+        setView('sessions');
+        return true;
+      } else if (view === 'sessions') {
+        setView('classes');
+        return true;
+      }
+      
+      return false; // Let default behavior happen
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [view, hasUnsavedChanges, handleSave]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -173,14 +232,14 @@ export default function TeacherAttendanceScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity 
-          onPress={() => view === 'classes' ? router.back() : view === 'sessions' ? setView('classes') : setView('sessions')}
+          onPress={handleBack}
           style={styles.backBtn}
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>
-            {view === 'classes' ? 'Attendance' : view === 'sessions' ? activeClass?.classes?.name : 'Take Attendance'}
+            {view === 'classes' ? 'Attendance' : view === 'sessions' ? activeClass?.classes?.name : (activeSession?.locked_at ? 'Edit Attendance' : "Wanna take today's attendance?")}
           </Text>
           <Text style={styles.headerSub}>
             {view === 'sessions' ? (activeClass?.sections?.name ? `Section ${activeClass.sections.name}` : 'Whole Class') : 
@@ -195,7 +254,7 @@ export default function TeacherAttendanceScreen() {
             <View style={styles.emptyState}>
               <Ionicons name="folder-open-outline" size={60} color="#cbd5e1" />
               <Text style={styles.emptyTitle}>No Classes Allotted</Text>
-              <Text style={styles.emptySubtitle}>You are currently not designated as a Class Teacher for any section. Only Class Teachers can mark attendance.</Text>
+              <Text style={styles.emptySubtitle}>You have not been assigned as a class teacher for any section yet. Only class teachers can mark attendance.</Text>
             </View>
           ) : (
             assignedClasses.map(cls => (
@@ -233,42 +292,90 @@ export default function TeacherAttendanceScreen() {
         </View>
       )}
 
-      {view === 'take' && (
-        <View style={{ flex: 1 }}>
-          <ScrollView style={styles.content}>
-            {rows.map((row, idx) => (
-              <View key={row.studentId} style={styles.studentCard}>
-                <View style={styles.studentInfo}>
-                  <Text style={styles.rollNo}>#{row.rollNumber || idx + 1}</Text>
-                  <View>
-                    <Text style={styles.studentName}>{row.fullName}</Text>
-                    <Text style={styles.studentAdm}>{row.admissionNo}</Text>
+      {view === 'take' && (() => {
+        const isLocked = activeSession?.locked_at && new Date(activeSession.locked_at) < new Date() && activeSession?.unlock_request_status !== 'approved';
+        const isUnlockPending = activeSession?.unlock_request_status === 'pending';
+        
+        const handleRequestUnlock = () => {
+          Alert.alert(
+            "Request Unlock",
+            "Do you want to request the admin to unlock this session so you can edit the attendance?",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Send Request", onPress: async () => {
+                  setSaving(true);
+                  const { requestSessionUnlock } = require('../../lib/services/attendance');
+                  const { error } = await requestSessionUnlock(activeSession.id, "Teacher requested unlock to modify attendance");
+                  setSaving(false);
+                  if (error) return Alert.alert("Error", "Failed to submit request.");
+                  Alert.alert("Request Generated", "Your unlock request has been submitted to the admin successfully.");
+                  setActiveSession({ ...activeSession, unlock_request_status: 'pending' });
+              }}
+            ]
+          );
+        };
+
+        return (
+          <View style={{ flex: 1 }}>
+            {isLocked && (
+              <View style={styles.lockBanner}>
+                <Ionicons name="lock-closed" size={20} color="#B71C1C" />
+                <Text style={styles.lockBannerText}>This session is locked.</Text>
+              </View>
+            )}
+            <ScrollView style={styles.content}>
+              {rows.map((row, idx) => (
+                <View key={row.studentId} style={styles.studentCard}>
+                  <View style={styles.studentInfo}>
+                    <Text style={styles.rollNo}>#{row.rollNumber || idx + 1}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.studentName} numberOfLines={1}>{row.fullName}</Text>
+                      <Text style={styles.studentAdm}>{row.admissionNo}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.statusButtons}>
+                    {(['present', 'absent', 'late', 'holiday'] as AttendanceStatus[]).map(s => (
+                      <TouchableOpacity 
+                        key={s} 
+                        onPress={() => {
+                          if (isLocked) {
+                             Alert.alert("Locked", "You cannot modify attendance after 30 minutes. Please request an unlock.");
+                             return;
+                          }
+                          setStatus(row.studentId, s);
+                        }}
+                        style={[
+                          styles.statusBtn, 
+                          row.status === s && { backgroundColor: getStatusColor(s), borderColor: getStatusColor(s) },
+                          isLocked && { opacity: 0.5 }
+                        ]}
+                      >
+                        <Text style={[styles.statusBtnText, row.status === s && { color: '#fff' }]}>
+                          {s.charAt(0).toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 </View>
-                <View style={styles.statusButtons}>
-                  {(['present', 'absent', 'late', 'holiday'] as AttendanceStatus[]).map(s => (
-                    <TouchableOpacity 
-                      key={s} 
-                      onPress={() => setStatus(row.studentId, s)}
-                      style={[
-                        styles.statusBtn, 
-                        row.status === s && { backgroundColor: getStatusColor(s), borderColor: getStatusColor(s) }
-                      ]}
-                    >
-                      <Text style={[styles.statusBtnText, row.status === s && { color: '#fff' }]}>
-                        {s.charAt(0).toUpperCase()}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+              ))}
+            </ScrollView>
+            
+            {isUnlockPending ? (
+              <View style={[styles.saveBtn, { backgroundColor: '#F59E0B' }]}>
+                <Text style={styles.saveBtnText}>Unlock Request Pending...</Text>
               </View>
-            ))}
-          </ScrollView>
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Attendance</Text>}
-          </TouchableOpacity>
-        </View>
-      )}
+            ) : isLocked ? (
+              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#EF4444' }]} onPress={handleRequestUnlock} disabled={saving}>
+                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Request Unlock to Edit</Text>}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{activeSession?.locked_at ? 'Update Attendance' : 'Save Attendance'}</Text>}
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+      })()}
 
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -337,9 +444,9 @@ const styles = StyleSheet.create({
   statusButtons: { flexDirection: 'row', gap: 5 },
   statusBtn: { width: 32, height: 32, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center' },
   statusBtnText: { fontSize: 12, fontWeight: '800', color: '#64748b' },
-  saveBtn: { backgroundColor: '#1a1d2e', margin: 20, padding: 16, borderRadius: 15, alignItems: 'center' },
+  saveBtn: { backgroundColor: '#1a1d2e', margin: 20, marginBottom: Platform.OS === 'ios' ? 120 : 100, padding: 16, borderRadius: 15, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  fab: { position: 'absolute', right: 20, bottom: 100, width: 56, height: 56, borderRadius: 28, backgroundColor: '#3B3D6B', justifyContent: 'center', alignItems: 'center', shadowColor: '#3B3D6B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+  fab: { position: 'absolute', right: 20, bottom: Platform.OS === 'ios' ? 120 : 100, width: 56, height: 56, borderRadius: 28, backgroundColor: '#3B3D6B', justifyContent: 'center', alignItems: 'center', shadowColor: '#3B3D6B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: '#fff', borderRadius: 20, padding: 20 },
@@ -353,5 +460,7 @@ const styles = StyleSheet.create({
   createBtnText: { fontWeight: '700', color: '#fff' },
   emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b', marginTop: 15 },
-  emptySubtitle: { fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 8, paddingHorizontal: 20, lineHeight: 20 }
+  emptySubtitle: { fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 8, paddingHorizontal: 20, lineHeight: 20 },
+  lockBanner: { backgroundColor: '#FFEBEE', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, gap: 8, marginHorizontal: 20, marginTop: 10, borderRadius: 10 },
+  lockBannerText: { color: '#B71C1C', fontWeight: '700', fontSize: 13 }
 });

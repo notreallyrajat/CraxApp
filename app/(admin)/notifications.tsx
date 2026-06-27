@@ -10,9 +10,12 @@ import {
   TextInput, 
   Alert,
   RefreshControl,
-  FlatList
+  FlatList,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from 'expo-router';
+import { DrawerActions } from '@react-navigation/native';
 import { 
   getAnnouncements, 
   createAnnouncement, 
@@ -42,6 +45,8 @@ export default function NotificationsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved'>('all');
+
+  const navigation = useNavigation();
 
   // Form State
   const [title, setTitle] = useState('');
@@ -159,21 +164,26 @@ export default function NotificationsScreen() {
 
   const getPriorityColor = (p: string) => {
     switch (p) {
-      case 'urgent': return '#dc3545';
-      case 'high': return '#fd7e14';
-      case 'normal': return '#0047AB';
-      case 'low': return '#6c757d';
-      default: return '#0047AB';
+      case 'urgent': return '#EF4444';
+      case 'high': return '#F59E0B';
+      case 'normal': return '#3B82F6';
+      case 'low': return '#94A3B8';
+      default: return '#3B82F6';
     }
   };
 
   const renderItem = ({ item }: { item: Announcement }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
-          <Text style={styles.priorityText}>{item.priority.toUpperCase()}</Text>
+        <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) + '15' }]}>
+          <Text style={[styles.priorityText, { color: getPriorityColor(item.priority) }]}>
+            {item.priority.toUpperCase()}
+          </Text>
         </View>
-        <Text style={styles.dateText}>{new Date(item.created_at).toLocaleDateString()}</Text>
+        <View style={styles.dateBadge}>
+          <Text style={styles.dbMonth}>{new Date(item.created_at).toLocaleDateString('en-US', { month: 'short' })}</Text>
+          <Text style={styles.dbDay}>{new Date(item.created_at).getDate()}</Text>
+        </View>
       </View>
 
       <Text style={styles.cardTitle}>{item.title}</Text>
@@ -181,7 +191,7 @@ export default function NotificationsScreen() {
 
       <View style={styles.cardFooter}>
         <View style={styles.audienceContainer}>
-          <Ionicons name="people" size={14} color="#8E8E93" />
+          <Ionicons name="people" size={16} color="#64748b" />
           <Text style={styles.audienceText}>{item.audience.charAt(0).toUpperCase() + item.audience.slice(1)}</Text>
         </View>
 
@@ -189,19 +199,19 @@ export default function NotificationsScreen() {
           {item.status === 'pending' ? (
             <>
               <TouchableOpacity onPress={() => handleApprove(item.id)} style={styles.iconBtn}>
-                <Ionicons name="checkmark-circle" size={24} color="#28a745" />
+                <Ionicons name="checkmark-circle" size={26} color="#10B981" />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleReject(item.id)} style={styles.iconBtn}>
-                <Ionicons name="close-circle" size={24} color="#dc3545" />
+                <Ionicons name="close-circle" size={26} color="#EF4444" />
               </TouchableOpacity>
             </>
           ) : (
             <>
               <TouchableOpacity onPress={() => openEdit(item)} style={styles.iconBtn}>
-                <Ionicons name="create-outline" size={22} color="#0047AB" />
+                <Ionicons name="create-outline" size={24} color="#3B82F6" />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.iconBtn}>
-                <Ionicons name="trash-outline" size={22} color="#dc3545" />
+                <Ionicons name="trash-outline" size={24} color="#EF4444" />
               </TouchableOpacity>
             </>
           )}
@@ -222,8 +232,15 @@ export default function NotificationsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Announcements</Text>
-        <Text style={styles.headerSub}>Manage school broadcasts</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 16 }}>
+            <Ionicons name="menu" size={32} color="#1e293b" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerSub}>School Broadcasts</Text>
+            <Text style={styles.headerTitle}>Announcements</Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.tabBar}>
@@ -245,17 +262,18 @@ export default function NotificationsScreen() {
         renderItem={renderItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0047AB']} />}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B3D6B']} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="megaphone-outline" size={64} color="#D1D5DB" />
+            <Ionicons name="megaphone-outline" size={64} color="#CBD5E1" />
             <Text style={styles.emptyText}>No announcements found.</Text>
           </View>
         }
       />
 
       <TouchableOpacity style={styles.fab} onPress={() => { resetForm(); setModalVisible(true); }}>
-        <Ionicons name="add" size={30} color="#FFFFFF" />
+        <Ionicons name="add" size={32} color="#FFFFFF" />
       </TouchableOpacity>
 
       <Modal visible={modalVisible} animationType="slide" transparent>
@@ -263,12 +281,12 @@ export default function NotificationsScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingId ? 'Edit' : 'New'} Announcement</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#1a1d2e" />
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtnIcon}>
+                <Ionicons name="close" size={24} color="#1e293b" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
               <Text style={styles.label}>Title</Text>
               <TextInput 
                 style={styles.input} 
@@ -360,99 +378,104 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { flex: 1, backgroundColor: '#F8F9FE' },
   header: { 
-    backgroundColor: '#0047AB', 
-    paddingTop: 60, 
-    paddingBottom: 20, 
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    elevation: 4
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20, 
+    paddingTop: Platform.OS === 'ios' ? 60 : 40, 
+    paddingBottom: 20 
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#FFFFFF' },
-  headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
+  headerSub: { fontSize: 14, color: '#64748b', fontWeight: '600', marginBottom: 4 },
+  headerTitle: { fontSize: 28, fontWeight: '800', color: '#1e293b', letterSpacing: -0.5 },
   tabBar: { 
     flexDirection: 'row', 
     paddingHorizontal: 20, 
-    marginTop: 20, 
     marginBottom: 10,
-    gap: 10 
+    gap: 12 
   },
   tab: { 
-    paddingVertical: 8, 
-    paddingHorizontal: 16, 
+    paddingVertical: 10, 
+    paddingHorizontal: 18, 
     borderRadius: 20, 
-    backgroundColor: '#E9ECEF' 
+    backgroundColor: '#f1f5f9' 
   },
-  activeTab: { backgroundColor: '#0047AB' },
-  tabText: { fontSize: 12, fontWeight: '700', color: '#6C757D' },
+  activeTab: { backgroundColor: '#3B3D6B' },
+  tabText: { fontSize: 13, fontWeight: '700', color: '#64748b' },
   activeTabText: { color: '#FFFFFF' },
-  listContent: { padding: 20, paddingBottom: 100 },
+  listContent: { padding: 20, paddingBottom: 120 },
   card: { 
-    backgroundColor: '#FFFFFF', 
-    borderRadius: 20, 
-    padding: 16, 
-    marginBottom: 16, 
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
+    backgroundColor: '#fff', 
+    borderRadius: 24, 
+    padding: 20, 
+    marginBottom: 20, 
+    shadowColor: '#3B3D6B', 
+    shadowOffset: { width: 0, height: 10 }, 
+    shadowOpacity: 0.06, 
+    shadowRadius: 20, 
+    elevation: 5 
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  priorityBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  priorityText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
-  dateText: { fontSize: 12, color: '#ADB5BD', fontWeight: '600' },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: '#212529', marginBottom: 8 },
-  cardContent: { fontSize: 14, color: '#495057', lineHeight: 20, marginBottom: 16 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  priorityBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  priorityText: { fontSize: 11, fontWeight: '800' },
+  dateBadge: { width: 54, height: 54, borderRadius: 16, backgroundColor: '#f8fafc', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
+  dbMonth: { fontSize: 11, color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
+  dbDay: { fontSize: 18, fontWeight: '800', color: '#3B3D6B' },
+  cardTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b', marginBottom: 8, lineHeight: 24 },
+  cardContent: { fontSize: 14, color: '#475569', lineHeight: 22, marginBottom: 16 },
   cardFooter: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
     borderTopWidth: 1, 
-    borderTopColor: '#F8F9FA', 
-    paddingTop: 12 
+    borderTopColor: '#f1f5f9', 
+    paddingTop: 16 
   },
   audienceContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  audienceText: { fontSize: 12, color: '#8E8E93', fontWeight: '600' },
-  actions: { flexDirection: 'row', gap: 12 },
+  audienceText: { fontSize: 13, color: '#64748b', fontWeight: '700' },
+  actions: { flexDirection: 'row', gap: 16 },
   iconBtn: { padding: 4 },
-  authorBar: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F8F9FA' },
-  authorText: { fontSize: 11, fontWeight: '700', color: '#0047AB' },
-  rejectionNote: { fontSize: 11, color: '#dc3545', marginTop: 4, fontStyle: 'italic' },
+  authorBar: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+  authorText: { fontSize: 13, fontWeight: '700', color: '#3B3D6B' },
+  rejectionNote: { fontSize: 12, color: '#EF4444', marginTop: 6, fontStyle: 'italic', fontWeight: '500' },
   fab: { 
     position: 'absolute', 
-    right: 20, 
-    bottom: 20, 
-    width: 60, 
-    height: 60, 
-    borderRadius: 30, 
-    backgroundColor: '#0047AB', 
+    right: 24, 
+    bottom: 24, 
+    width: 64, 
+    height: 64, 
+    borderRadius: 32, 
+    backgroundColor: '#3B3D6B', 
     justifyContent: 'center', 
     alignItems: 'center', 
-    elevation: 6 
+    shadowColor: '#3B3D6B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8 
   },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
   modalContent: { 
     backgroundColor: '#FFFFFF', 
-    borderTopLeftRadius: 30, 
-    borderTopRightRadius: 30, 
+    borderTopLeftRadius: 32, 
+    borderTopRightRadius: 32, 
     padding: 24, 
     maxHeight: '90%' 
   },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: '#1a1d2e' },
-  label: { fontSize: 14, fontWeight: '700', color: '#495057', marginBottom: 8, marginTop: 16 },
-  input: { backgroundColor: '#F8F9FA', borderRadius: 12, padding: 12, fontSize: 15, color: '#212529' },
-  textArea: { textAlignVertical: 'top', minHeight: 100 },
-  audienceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  choiceBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#E9ECEF' },
-  activeChoice: { backgroundColor: '#0047AB', borderColor: '#0047AB' },
-  choiceText: { fontSize: 13, fontWeight: '600', color: '#6C757D' },
+  modalTitle: { fontSize: 22, fontWeight: '800', color: '#1e293b' },
+  closeBtnIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  label: { fontSize: 14, fontWeight: '700', color: '#334155', marginBottom: 10, marginTop: 20 },
+  input: { backgroundColor: '#f8fafc', borderRadius: 16, padding: 16, fontSize: 15, color: '#1e293b', borderWidth: 1, borderColor: '#f1f5f9' },
+  textArea: { textAlignVertical: 'top', minHeight: 120 },
+  audienceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  choiceBtn: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  activeChoice: { backgroundColor: '#3B3D6B', borderColor: '#3B3D6B' },
+  choiceText: { fontSize: 13, fontWeight: '700', color: '#64748b' },
   activeChoiceText: { color: '#FFFFFF' },
-  submitBtn: { backgroundColor: '#0047AB', padding: 16, borderRadius: 15, marginTop: 32, alignItems: 'center' },
+  submitBtn: { backgroundColor: '#3B3D6B', padding: 18, borderRadius: 16, marginTop: 40, alignItems: 'center', shadowColor: '#3B3D6B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
   submitBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
   emptyContainer: { alignItems: 'center', marginTop: 100 },
-  emptyText: { marginTop: 16, color: '#ADB5BD', fontSize: 16, fontWeight: '600' },
+  emptyText: { marginTop: 16, color: '#94a3b8', fontSize: 16, fontWeight: '600' },
 });

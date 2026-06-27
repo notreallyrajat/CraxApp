@@ -12,8 +12,10 @@ import {
   RefreshControl,
   Platform
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { supabase } from '../../lib/supabase';
 import { getTeacherProfile, getAssignedClasses } from '../../lib/services/teacher';
 import { 
@@ -25,6 +27,8 @@ import {
 export default function TeacherAssignmentsScreen() {
   const [teacher, setTeacher] = useState<any>(null);
   const [assignments, setAssignments] = useState<any[]>([]);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [viewingAssignment, setViewingAssignment] = useState<any>(null);
   const [assignedClasses, setAssignedClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,6 +38,8 @@ export default function TeacherAssignmentsScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dueDateObj, setDueDateObj] = useState(new Date());
   const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedSectionId, setSelectedSectionId] = useState('');
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
@@ -55,8 +61,20 @@ export default function TeacherAssignmentsScreen() {
           getAssignedClasses(profile.teachers.id)
         ]);
 
-        setAssignments(asnRes.data || []);
+        const assignmentsData = asnRes.data || [];
+        setAssignments(assignmentsData);
         setAssignedClasses(classesRes.data || []);
+        
+        if (assignmentsData.length > 0) {
+          const asnIds = assignmentsData.map(a => a.id);
+          const { data: subsData } = await supabase
+            .from('assignment_submissions')
+            .select(`*, students ( profiles ( full_name ) )`)
+            .in('assignment_id', asnIds);
+          setSubmissions(subsData || []);
+        } else {
+          setSubmissions([]);
+        }
       }
     } catch (error) {
       console.error("Error loading assignments:", error);
@@ -99,6 +117,8 @@ export default function TeacherAssignmentsScreen() {
       setTitle('');
       setDescription('');
       setDueDate('');
+      setDueDateObj(new Date());
+      setShowDatePicker(false);
       setSelectedClassId('');
       setSelectedSectionId('');
       setSelectedSubjectId('');
@@ -153,43 +173,54 @@ export default function TeacherAssignmentsScreen() {
         style={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1a1d2e']} />}
       >
-        {assignments.map(asn => (
-          <View key={asn.id} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.titleArea}>
-                <Text style={styles.asnTitle}>{asn.title}</Text>
-                <View style={styles.metaRow}>
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{asn.classes?.name}</Text>
-                  </View>
-                  {asn.sections && (
-                    <View style={[styles.badge, { backgroundColor: '#E0F2F1' }]}>
-                      <Text style={[styles.badgeText, { color: '#00695C' }]}>Sec {asn.sections.name}</Text>
+        {assignments.map(asn => {
+          const asnSubmissions = submissions.filter(s => s.assignment_id === asn.id);
+          
+          return (
+            <View key={asn.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.titleArea}>
+                  <Text style={styles.asnTitle}>{asn.title}</Text>
+                  <View style={styles.metaRow}>
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{asn.classes?.name}</Text>
                     </View>
-                  )}
-                  {asn.subjects && (
-                    <Text style={styles.subjectText}>{asn.subjects.name}</Text>
-                  )}
+                    {asn.sections && (
+                      <View style={[styles.badge, { backgroundColor: '#E0F2F1' }]}>
+                        <Text style={[styles.badgeText, { color: '#00695C' }]}>Sec {asn.sections.name}</Text>
+                      </View>
+                    )}
+                    {asn.subjects && (
+                      <Text style={styles.subjectText}>{asn.subjects.name}</Text>
+                    )}
+                  </View>
                 </View>
+                <TouchableOpacity onPress={() => handleDelete(asn.id)}>
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity onPress={() => handleDelete(asn.id)}>
-                <Ionicons name="trash-outline" size={20} color="#EF4444" />
-              </TouchableOpacity>
-            </View>
-            
-            {asn.description && <Text style={styles.asnDesc} numberOfLines={2}>{asn.description}</Text>}
-            
-            <View style={styles.cardFooter}>
-              <View style={styles.dateInfo}>
-                <Ionicons name="calendar-outline" size={14} color="#64748b" />
-                <Text style={styles.dateText}>
-                  Due: {asn.due_date ? new Date(asn.due_date).toLocaleDateString() : 'No deadline'}
-                </Text>
+              
+              {asn.description && <Text style={styles.asnDesc} numberOfLines={2}>{asn.description}</Text>}
+              
+              <View style={styles.cardFooter}>
+                <View style={styles.dateInfo}>
+                  <Ionicons name="calendar-outline" size={14} color="#64748b" />
+                  <Text style={styles.dateText}>
+                    Due: {asn.due_date ? new Date(asn.due_date).toLocaleDateString() : 'No deadline'}
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  style={[styles.subsBadge, asnSubmissions.length > 0 && styles.subsBadgeActive]}
+                  onPress={() => setViewingAssignment(asn)}
+                >
+                  <Text style={[styles.subsText, asnSubmissions.length > 0 && styles.subsTextActive]}>
+                    {asnSubmissions.length} Submissions
+                  </Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.createdText}>{new Date(asn.created_at).toLocaleDateString()}</Text>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
 
       <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
@@ -289,8 +320,39 @@ export default function TeacherAssignmentsScreen() {
                 </>
               )}
 
-              <Text style={styles.label}>Due Date (YYYY-MM-DD)</Text>
-              <TextInput style={styles.input} value={dueDate} onChangeText={setDueDate} placeholder="2024-12-31" />
+              <Text style={styles.label}>Due Date (Optional)</Text>
+              <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+                <Text style={{ color: dueDate ? '#1a1d2e' : '#94a3b8', fontSize: 15 }}>
+                  {dueDate || "Select Date"}
+                </Text>
+              </TouchableOpacity>
+              
+              {showDatePicker && (
+                <View style={Platform.OS === 'ios' ? { backgroundColor: '#fff', borderRadius: 12, marginTop: 8, padding: 8 } : {}}>
+                  <DateTimePicker
+                    value={dueDateObj}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === 'android') {
+                        setShowDatePicker(false);
+                      }
+                      if (selectedDate) {
+                        setDueDateObj(selectedDate);
+                        const yyyy = selectedDate.getFullYear();
+                        const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                        const dd = String(selectedDate.getDate()).padStart(2, '0');
+                        setDueDate(`${yyyy}-${mm}-${dd}`);
+                      }
+                    }}
+                  />
+                  {Platform.OS === 'ios' && (
+                    <TouchableOpacity style={{ padding: 10, alignItems: 'center' }} onPress={() => setShowDatePicker(false)}>
+                      <Text style={{ color: '#1a1d2e', fontWeight: '700' }}>Done</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
@@ -301,6 +363,47 @@ export default function TeacherAssignmentsScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      <Modal visible={!!viewingAssignment} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={styles.modalTitle}>Submissions</Text>
+              <TouchableOpacity onPress={() => setViewingAssignment(null)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            {viewingAssignment && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {submissions.filter(s => s.assignment_id === viewingAssignment.id).length === 0 ? (
+                  <Text style={{ textAlign: 'center', color: '#94a3b8', marginTop: 20 }}>No submissions yet.</Text>
+                ) : (
+                  submissions.filter(s => s.assignment_id === viewingAssignment.id).map(sub => (
+                    <View key={sub.id} style={styles.submissionCard}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#e0e7ff', justifyContent: 'center', alignItems: 'center' }}>
+                          <Text style={{ color: '#3F51B5', fontWeight: '700' }}>{sub.students?.profiles?.full_name?.charAt(0) || 'S'}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontWeight: '700', color: '#1a1d2e' }}>{sub.students?.profiles?.full_name || 'Student'}</Text>
+                          <Text style={{ fontSize: 12, color: '#64748b' }}>Submitted: {new Date(sub.submitted_at).toLocaleDateString()}</Text>
+                        </View>
+                        {sub.file_url && (
+                          <TouchableOpacity style={{ padding: 8, backgroundColor: '#F1F5F9', borderRadius: 8 }} onPress={() => {
+                            Linking.openURL(sub.file_url);
+                          }}>
+                            <Ionicons name="document-text" size={20} color="#3B3D6B" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+            )}
           </View>
         </View>
       </Modal>
@@ -337,10 +440,15 @@ const styles = StyleSheet.create({
   dateInfo: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dateText: { fontSize: 11, color: '#64748b', fontWeight: '600' },
   createdText: { fontSize: 10, color: '#94A3B8' },
+  subsBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: '#F1F5F9' },
+  subsBadgeActive: { backgroundColor: '#e0e7ff' },
+  subsText: { fontSize: 11, fontWeight: '700', color: '#94a3b8' },
+  subsTextActive: { color: '#3F51B5' },
   fab: { position: 'absolute', right: 20, bottom: 100, width: 60, height: 60, borderRadius: 30, backgroundColor: '#3B3D6B', justifyContent: 'center', alignItems: 'center', shadowColor: '#3B3D6B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: '#fff', borderRadius: 28, padding: 24, maxHeight: '90%' },
-  modalTitle: { fontSize: 22, fontWeight: '800', color: '#1a1d2e', marginBottom: 20 },
+  modalTitle: { fontSize: 22, fontWeight: '800', color: '#1a1d2e' },
+  submissionCard: { padding: 16, borderRadius: 12, backgroundColor: '#F8F9FA', marginBottom: 12, borderWidth: 1, borderColor: '#F1F5F9' },
   label: { fontSize: 13, fontWeight: '700', color: '#64748b', marginBottom: 8, marginTop: 15 },
   input: { backgroundColor: '#F1F5F9', borderRadius: 12, padding: 14, fontSize: 15, color: '#1a1d2e' },
   textArea: { minHeight: 80, textAlignVertical: 'top' },

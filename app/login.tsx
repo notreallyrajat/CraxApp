@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { logActivity } from '../lib/services/logger';
+import { useRouter } from 'expo-router';
 
 import CraxLogoSvg from '../components/CraxLogoSvg';
 
@@ -23,21 +24,42 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password.trim()) {
       setError('Email and password are required.');
       return;
     }
+    
+    // Validate that it's an original existing mail format, not just a username
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError('Please enter a complete, valid email address (e.g. name@domain.com).');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
+      email: trimmedEmail,
       password,
     });
 
     if (authError || !authData.user) {
+      const errorMessage = authError?.message?.toLowerCase() || '';
+      if (errorMessage.includes('fetch') || errorMessage.includes('network request failed')) {
+        setLoading(false);
+        router.push('/network-error');
+        return;
+      } else if (errorMessage.includes('database') || errorMessage.includes('connection')) {
+        setLoading(false);
+        router.push('/database-error');
+        return;
+      }
+      
       setError(authError?.message ?? 'Invalid email or password.');
       setLoading(false);
       return;

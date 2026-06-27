@@ -80,8 +80,8 @@ export default function TeacherChatDetailScreen() {
       const { data, error } = await sendMessage(myProfile.id, studentProfileId as string, content);
       if (error) throw error;
       setMessages(prev => [...prev, data]);
-    } catch (error) {
-      Alert.alert("Error", "Failed to send message.");
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Failed to send message.");
       setInputText(content);
     } finally {
       setSending(false);
@@ -96,11 +96,11 @@ export default function TeacherChatDetailScreen() {
     <KeyboardAvoidingView 
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color="#1e293b" />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle}>{studentName}</Text>
@@ -113,6 +113,7 @@ export default function TeacherChatDetailScreen() {
         style={styles.chatArea}
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
         contentContainerStyle={{ paddingVertical: 20 }}
+        showsVerticalScrollIndicator={false}
       >
         {messages.map((msg) => {
           const isMine = msg.sender_id === myProfile?.id;
@@ -131,56 +132,79 @@ export default function TeacherChatDetailScreen() {
         })}
       </ScrollView>
 
-      <View style={styles.inputArea}>
-        <TextInput 
-          style={styles.input}
-          placeholder="Type a message..."
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
-        />
-        <TouchableOpacity 
-          style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]} 
-          onPress={handleSend}
-          disabled={!inputText.trim() || sending}
-        >
-          {sending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
-        </TouchableOpacity>
+      <View style={styles.inputContainer}>
+        <View style={styles.inputArea}>
+          <TextInput 
+            style={styles.input}
+            placeholder="Type a message..."
+            placeholderTextColor="#94a3b8"
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+          />
+          <TouchableOpacity 
+            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]} 
+            onPress={handleSend}
+            disabled={!inputText.trim() || sending}
+          >
+            {sending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={18} color="#fff" />}
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F0F2F5' },
+  container: { flex: 1, backgroundColor: '#F8F9FE' },
   header: { 
-    backgroundColor: '#1a1d2e', 
-    paddingTop: Platform.OS === 'android' ? 40 : 15, 
-    paddingBottom: 15, 
+    backgroundColor: '#fff', 
+    paddingTop: Platform.OS === 'android' ? 50 : 20, 
+    paddingBottom: 20, 
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
     gap: 15
   },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: '#F8F9FE', justifyContent: 'center', alignItems: 'center'
+  },
   headerInfo: { flex: 1 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
-  headerSub: { fontSize: 11, color: '#4CAF50', fontWeight: '700' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  chatArea: { flex: 1, paddingHorizontal: 15 },
-  msgWrapper: { marginBottom: 10, flexDirection: 'row' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
+  headerSub: { fontSize: 12, color: '#10B981', fontWeight: '600' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FE' },
+  chatArea: { flex: 1, paddingHorizontal: 20 },
+  msgWrapper: { marginBottom: 15, flexDirection: 'row' },
   myMsgWrapper: { justifyContent: 'flex-end' },
   theirMsgWrapper: { justifyContent: 'flex-start' },
-  msgBubble: { maxWidth: '80%', padding: 12, borderRadius: 18 },
-  myMsgBubble: { backgroundColor: '#1a1d2e', borderBottomRightRadius: 4 },
-  theirMsgBubble: { backgroundColor: '#fff', borderBottomLeftRadius: 4 },
-  msgText: { fontSize: 15 },
+  msgBubble: { maxWidth: '80%', padding: 15, borderRadius: 24, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
+  myMsgBubble: { backgroundColor: '#4F46E5', borderBottomRightRadius: 6 },
+  theirMsgBubble: { backgroundColor: '#fff', borderBottomLeftRadius: 6 },
+  msgText: { fontSize: 15, lineHeight: 22 },
   myMsgText: { color: '#fff' },
-  theirMsgText: { color: '#1a1d2e' },
-  msgTime: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
-  myMsgTime: { color: 'rgba(255,255,255,0.6)' },
+  theirMsgText: { color: '#334155' },
+  msgTime: { fontSize: 10, marginTop: 6, alignSelf: 'flex-end', fontWeight: '500' },
+  myMsgTime: { color: 'rgba(255,255,255,0.7)' },
   theirMsgTime: { color: '#94A3B8' },
-  inputArea: { flexDirection: 'row', padding: 10, backgroundColor: '#fff', alignItems: 'flex-end', gap: 10 },
-  input: { flex: 1, backgroundColor: '#F1F5F9', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 8, fontSize: 15, maxHeight: 100 },
-  sendBtn: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: '#1a1d2e', justifyContent: 'center', alignItems: 'center' },
+  inputContainer: {
+    padding: 15,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  inputArea: { 
+    flexDirection: 'row', 
+    backgroundColor: '#F8F9FE', 
+    borderRadius: 24, 
+    paddingHorizontal: 5,
+    paddingVertical: 5,
+    alignItems: 'flex-end',
+    borderWidth: 1,
+    borderColor: '#E2E8F0'
+  },
+  input: { flex: 1, minHeight: 40, maxHeight: 100, paddingHorizontal: 15, paddingTop: 10, paddingBottom: 10, fontSize: 15, color: '#1e293b' },
+  sendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#4F46E5', justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
   sendBtnDisabled: { backgroundColor: '#CBD5E1' }
 });

@@ -12,7 +12,7 @@ function BottomTabBar() {
   const pathname = usePathname();
 
   const isDashboard = pathname === '/' || pathname === '/index' || pathname === '/(teacher)' || pathname === '/(teacher)/index';
-  const isAcademics = pathname === '/documents' || pathname === '/(teacher)/documents';
+  const isPerformance = pathname === '/student-analytics' || pathname === '/(teacher)/student-analytics' || pathname.startsWith('/(teacher)/student-analytics/');
   const isAnnouncements = pathname === '/announcements' || pathname === '/(teacher)/announcements';
   const isSchedule = pathname === '/timetable' || pathname === '/(teacher)/timetable';
   const isChat = pathname.startsWith('/chat') || pathname.startsWith('/(teacher)/chat');
@@ -26,11 +26,11 @@ function BottomTabBar() {
          <Text style={isDashboard ? styles.tabTextActive : styles.tabText}>Dashboard</Text>
       </TouchableOpacity>
       
-      <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/(teacher)/documents')}>
-         <View style={isAcademics ? styles.tabIconActiveBg : null}>
-            <Ionicons name="library-outline" size={isAcademics ? 20 : 24} color={isAcademics ? "#3B3D6B" : "#64748b"} />
+      <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/(teacher)/student-analytics')}>
+         <View style={isPerformance ? styles.tabIconActiveBg : null}>
+            <Ionicons name="bar-chart-outline" size={isPerformance ? 20 : 24} color={isPerformance ? "#3B3D6B" : "#64748b"} />
          </View>
-         <Text style={isAcademics ? styles.tabTextActive : styles.tabText}>Academics</Text>
+         <Text style={isPerformance ? styles.tabTextActive : styles.tabText}>Performance</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/(teacher)/announcements')}>
@@ -47,12 +47,6 @@ function BottomTabBar() {
          <Text style={isSchedule ? styles.tabTextActive : styles.tabText}>Schedule</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/(teacher)/chat/index')}>
-         <View style={isChat ? styles.tabIconActiveBg : null}>
-            <Ionicons name="chatbubbles-outline" size={isChat ? 20 : 24} color={isChat ? "#3B3D6B" : "#64748b"} />
-         </View>
-         <Text style={isChat ? styles.tabTextActive : styles.tabText}>Chat</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -94,6 +88,8 @@ import { ActivityIndicator } from 'react-native';
 
 export default function TeacherLayout() {
   const { isAuthorized } = useRoleGuard('teacher');
+  const pathname = usePathname();
+  const isDetailScreen = pathname.match(/\/chat\/[^/]+$/) || pathname.match(/\/student-analytics\/[^/]+$/);
 
   if (isAuthorized === null) {
     return (
@@ -225,7 +221,7 @@ export default function TeacherLayout() {
         />
 
       </Drawer>
-      <BottomTabBar />
+      {!isDetailScreen && <BottomTabBar />}
     </GestureHandlerRootView>
   );
 }

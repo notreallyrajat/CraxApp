@@ -10,6 +10,7 @@ import { getSubjects, createSubject, deleteSubject } from '../../../lib/services
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import Papa from 'papaparse';
+import { supabase } from '../../../lib/supabase';
 
 type Section = { id: string; name: string };
 type Enrollment = {
@@ -42,26 +43,26 @@ export default function ClassDetailsScreen() {
   const [students, setStudents] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [allSubjects, setAllSubjects] = useState<any[]>([]);
   
   const [loading, setLoading] = useState(true);
 
   // Modals visibility
   const [sectionModalVisible, setSectionModalVisible] = useState(false);
   const [subjectModalVisible, setSubjectModalVisible] = useState(false);
-  const [enrollModalVisible, setEnrollModalVisible] = useState(false);
   const [assignModalVisible, setAssignModalVisible] = useState(false);
   const [ctModalVisible, setCtModalVisible] = useState(false);
   const [previewSubjectModalVisible, setPreviewSubjectModalVisible] = useState(false);
+  const [previewStudentModalVisible, setPreviewStudentModalVisible] = useState(false);
+  const [previewStudentData, setPreviewStudentData] = useState<any[]>([]);
 
   // Form & UI states
   const [uploadingSubjectCsv, setUploadingSubjectCsv] = useState(false);
+  const [uploadingStudentCsv, setUploadingStudentCsv] = useState(false);
   const [previewSubjectData, setPreviewSubjectData] = useState<any[]>([]);
   const [sectionName, setSectionName] = useState('');
   const [subjectName, setSubjectName] = useState('');
   const [subjectCode, setSubjectCode] = useState('');
-  const [enrollStudentId, setEnrollStudentId] = useState('');
-  const [enrollSectionId, setEnrollSectionId] = useState('');
-  const [enrollRoll, setEnrollRoll] = useState('');
   const [assignTeacherId, setAssignTeacherId] = useState('');
   const [assignSectionId, setAssignSectionId] = useState('');
   const [assignSubjectIds, setAssignSubjectIds] = useState<string[]>([]);
@@ -76,25 +77,41 @@ export default function ClassDetailsScreen() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [clsRes, secRes, enrRes, asnRes, stuRes, tchRes, subRes, ctRes] = await Promise.all([
+      const [clsRes, secRes, enrRes, asnRes, stuRes, tchRes, subRes, allSubRes, ctRes] = await Promise.all([
         getClassById(id),
         getSections(id),
         getEnrollments(id),
         getTeacherAssignments(id),
-        getStudents(),
+        getStudents(0, 10000),
         getTeachers(),
         getSubjects(id),
+        getSubjects(),
         getClassTeacher(id),
       ]);
 
       if (clsRes.data) setClassData({ name: clsRes.data.name, code: clsRes.data.code });
       setSections(secRes.data || []);
-      setEnrollments(enrRes.data || []);
-      setAssignments(asnRes.data || []);
+      setEnrollments((enrRes.data as any) || []);
+      setAssignments((asnRes.data as any) || []);
       setStudents(stuRes.data || []);
       setTeachers(tchRes.data || []);
       setSubjects(subRes.data || []);
-      setClassTeacherState(ctRes.data || null);
+      
+      // Filter unique subjects across all classes
+      if (allSubRes && allSubRes.data) {
+        const uniqueSubjects = [];
+        const seen = new Set();
+        for (const s of allSubRes.data) {
+          const key = (s.name + '|' + (s.code || '')).toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueSubjects.push(s);
+          }
+        }
+        setAllSubjects(uniqueSubjects);
+      }
+
+      setClassTeacherState((ctRes.data as any) || null);
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Failed to load class details');
@@ -246,30 +263,6 @@ export default function ClassDetailsScreen() {
     setPreviewSubjectData(newData);
   };
 
-  // ---- Enrollment Handlers ----
-  const handleEnroll = async () => {
-    if (!enrollStudentId) {
-      Alert.alert('Error', 'Please select a student');
-      return;
-    }
-    setSaving(true);
-    const { error } = await createEnrollment({
-      studentId: enrollStudentId,
-      classId: id,
-      sectionId: enrollSectionId || undefined,
-      rollNumber: enrollRoll || undefined,
-    });
-    setSaving(false);
-    if (error) Alert.alert('Error', error.message);
-    else {
-      setEnrollModalVisible(false);
-      setEnrollStudentId('');
-      setEnrollSectionId('');
-      setEnrollRoll('');
-      loadData();
-    }
-  };
-
   const confirmRemoveEnrollment = (enrollId: string, studentName: string) => {
     Alert.alert("Remove Enrollment", `Remove ${studentName} from this class?`, [
       { text: "Cancel", style: "cancel" },
@@ -279,6 +272,244 @@ export default function ClassDetailsScreen() {
         }
       }
     ]);
+  };
+
+  const parseDob = (dobStr: string): string | null => {
+    if (!dobStr) return null;
+    const clean = dobStr.trim().replace(/^'|'$/g, '');
+    if (!clean) return null;
+    
+    const parts = clean.split(/[\/\-]/);
+    if (parts.length === 3) {
+      let day = parseInt(parts[0], 10);
+      let month = parseInt(parts[1], 10);
+      let year = parseInt(parts[2], 10);
+      
+      if (day > 0 && day <= 31 && month > 0 && month <= 12 && year > 1900) {
+        const mm = month < 10 ? `0${month}` : `${month}`;
+        const dd = day < 10 ? `0${day}` : `${day}`;
+        return `${year}-${mm}-${dd}`;
+      }
+      
+      if (parts[0].length === 4) {
+        year = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10);
+        day = parseInt(parts[2], 10);
+        const mm = month < 10 ? `0${month}` : `${month}`;
+        const dd = day < 10 ? `0${day}` : `${day}`;
+        return `${year}-${mm}-${dd}`;
+      }
+    }
+    
+    const d = new Date(clean);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split('T')[0];
+    }
+    return null;
+  };
+
+  const handleStudentCsvUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'application/vnd.ms-excel', 'text/comma-separated-values', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      setUploadingStudentCsv(true);
+      const fileUri = result.assets[0].uri;
+      let fileData: any;
+      if (result.assets[0].file) {
+        fileData = result.assets[0].file;
+      } else {
+        fileData = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as any });
+      }
+
+      Papa.parse(fileData, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim().replace(/^\uFEFF/g, '').toLowerCase(),
+        complete: async (results) => {
+          const rows = results.data as any[];
+          if (rows.length === 0) {
+            Alert.alert('Error', 'The CSV file is empty.');
+            setUploadingStudentCsv(false);
+            return;
+          }
+
+          const formattedRows = rows.map(row => {
+            const nameKey = Object.keys(row).find(k => k.includes('name'));
+            const emailKey = Object.keys(row).find(k => k.includes('email'));
+            const passwordKey = Object.keys(row).find(k => k.includes('pass'));
+            const admissionKey = Object.keys(row).find(k => k.includes('admission') || k.includes('adm'));
+            const phoneKey = Object.keys(row).find(k => k.includes('phone') || k.includes('call'));
+            const dobKey = Object.keys(row).find(k => k.includes('birth') || k.includes('dob') || k.includes('date'));
+
+            const fullNameVal = nameKey ? row[nameKey] : '';
+            const emailVal = emailKey ? row[emailKey] : '';
+            const passwordVal = passwordKey ? row[passwordKey] : 'password123';
+            const admissionNoVal = admissionKey ? row[admissionKey] : '';
+            const phoneVal = phoneKey ? row[phoneKey] : '';
+            const dobVal = dobKey ? row[dobKey] : '';
+
+            const cleanStr = (val: any) => typeof val === 'string' ? val.trim().replace(/^'|'$/g, '') : '';
+
+            return {
+              fullName: cleanStr(fullNameVal),
+              email: cleanStr(emailVal),
+              password: cleanStr(passwordVal) || 'password123',
+              admissionNo: cleanStr(admissionNoVal),
+              phone: cleanStr(phoneVal),
+              dateOfBirth: cleanStr(dobVal)
+            };
+          }).filter(row => row.fullName && row.email && row.admissionNo);
+
+          if (formattedRows.length === 0) {
+            Alert.alert('Error', 'No valid students found. Ensure CSV has "Full Name", "Email", and "Admission No".');
+            setUploadingStudentCsv(false);
+            return;
+          }
+
+          setPreviewStudentData(formattedRows);
+          setPreviewStudentModalVisible(true);
+          setUploadingStudentCsv(false);
+        },
+        error: (error: any) => {
+          Alert.alert('Error parsing CSV', error.message);
+          setUploadingStudentCsv(false);
+        }
+      });
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+      setUploadingStudentCsv(false);
+    }
+  };
+
+  const confirmStudentCsvUpload = async () => {
+    setUploadingStudentCsv(true);
+    const validData = previewStudentData.filter(
+      item => item.fullName.trim() !== '' && item.email.trim() !== '' && item.admissionNo.trim() !== ''
+    );
+
+    if (validData.length === 0) {
+      Alert.alert('Error', 'No valid students to upload.');
+      setUploadingStudentCsv(false);
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const student of validData) {
+      try {
+        let studentId = '';
+        
+        const { data: resData, error: invokeErr } = await supabase.functions.invoke('manage-users', {
+          body: {
+            email: student.email,
+            password: student.password,
+            fullName: student.fullName,
+            phone: student.phone || undefined,
+            role: 'student',
+            extraData: {
+              admissionNo: student.admissionNo,
+              dateOfBirth: parseDob(student.dateOfBirth),
+            },
+          }
+        });
+
+        if (!invokeErr && resData && resData.profileId) {
+          const { data: stData } = await supabase
+            .from('students')
+            .select('id')
+            .eq('profile_id', resData.profileId)
+            .single();
+          if (stData) studentId = stData.id;
+        } else {
+          const { data: stData } = await supabase
+            .from('students')
+            .select('id')
+            .eq('admission_no', student.admissionNo)
+            .single();
+          
+          if (stData) {
+            studentId = stData.id;
+          } else {
+            const { data: profData } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('email', student.email)
+              .single();
+            
+            if (profData) {
+              const { data: stData2 } = await supabase
+                .from('students')
+                .select('id')
+                .eq('profile_id', profData.id)
+                .single();
+              
+              if (stData2) {
+                studentId = stData2.id;
+              } else {
+                const { data: newSt, error: stErr } = await supabase
+                  .from('students')
+                  .insert({
+                    profile_id: profData.id,
+                    admission_no: student.admissionNo,
+                    date_of_birth: parseDob(student.dateOfBirth),
+                  })
+                  .select('id')
+                  .single();
+                if (!stErr && newSt) {
+                  studentId = newSt.id;
+                }
+              }
+            }
+          }
+        }
+
+        if (studentId) {
+          const { data: existingEnroll } = await supabase
+            .from('enrollments')
+            .select('id')
+            .eq('student_id', studentId)
+            .eq('class_id', id)
+            .maybeSingle();
+
+          if (!existingEnroll) {
+            const { error: enrollErr } = await createEnrollment({
+              studentId: studentId,
+              classId: id,
+            });
+            if (!enrollErr) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } else {
+            successCount++;
+          }
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        console.error("Error creating/enrolling student:", err);
+        failCount++;
+      }
+    }
+
+    Alert.alert('Upload Complete', `Successfully imported and enrolled ${successCount} students. Failed: ${failCount}`);
+    setPreviewStudentModalVisible(false);
+    setPreviewStudentData([]);
+    loadData();
+    setUploadingStudentCsv(false);
+  };
+
+  const updatePreviewStudentItem = (index: number, field: string, value: string) => {
+    const newData = [...previewStudentData];
+    newData[index][field] = value;
+    setPreviewStudentData(newData);
   };
 
   // ---- Teacher Assignment Handlers ----
@@ -474,7 +705,7 @@ export default function ClassDetailsScreen() {
 
         {/* Enrolled Students */}
         <View style={styles.sectionContainer}>
-          {renderSectionHeader("Enrolled Students", enrollments.length, () => setEnrollModalVisible(true), "school-outline")}
+          {renderSectionHeader("Enrolled Students", enrollments.length, () => router.push(`/(admin)/classes/${id}/enroll-students`), "school-outline", handleStudentCsvUpload)}
           {enrollments.length === 0 ? (
             <Text style={styles.emptyTextSmall}>No students enrolled yet.</Text>
           ) : (
@@ -549,9 +780,32 @@ export default function ClassDetailsScreen() {
       {/* Add Subject Modal */}
       <Modal visible={subjectModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
             <View style={styles.modalDragIndicator} />
             <Text style={styles.modalTitle}>New Subject</Text>
+            
+            {allSubjects.length > 0 && (
+              <View style={[styles.formGroup, { marginBottom: 16 }]}>
+                <Text style={styles.label}>Select from Existing</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingBottom: 8 }}>
+                  {allSubjects.map((s, idx) => (
+                    <TouchableOpacity 
+                      key={idx} 
+                      style={[styles.sectionOption, subjectName === s.name && subjectCode === (s.code || '') && styles.sectionOptionSelected]}
+                      onPress={() => {
+                        setSubjectName(s.name);
+                        setSubjectCode(s.code || '');
+                      }}
+                    >
+                      <Text style={[styles.sectionOptionText, subjectName === s.name && subjectCode === (s.code || '') && styles.sectionOptionTextSelected]}>
+                        {s.name} {s.code ? `(${s.code})` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
             <View style={styles.formGroup}>
               <Text style={styles.label}>Subject Name *</Text>
               <TextInput style={styles.input} placeholder="e.g. Mathematics" value={subjectName} onChangeText={setSubjectName} />
@@ -561,7 +815,7 @@ export default function ClassDetailsScreen() {
               <TextInput style={styles.input} placeholder="e.g. MATH101" value={subjectCode} onChangeText={setSubjectCode} autoCapitalize="characters" />
             </View>
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setSubjectModalVisible(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => { setSubjectModalVisible(false); setSubjectName(''); setSubjectCode(''); }}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
               <TouchableOpacity style={styles.saveButton} onPress={handleAddSubject} disabled={saving}><Text style={styles.saveText}>{saving ? 'Saving...' : 'Add Subject'}</Text></TouchableOpacity>
             </View>
           </View>
@@ -618,57 +872,6 @@ export default function ClassDetailsScreen() {
               >
                 <Text style={styles.saveText}>{uploadingSubjectCsv ? 'Uploading...' : 'Confirm Upload'}</Text>
               </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Enroll Student Modal */}
-      <Modal visible={enrollModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
-            <View style={styles.modalDragIndicator} />
-            <Text style={styles.modalTitle}>Enroll Student</Text>
-            
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Select Student</Text>
-                <View style={styles.pickerContainer}>
-                  <ScrollView nestedScrollEnabled style={{ maxHeight: 150 }}>
-                    {students.map(s => (
-                      <TouchableOpacity key={s.id} style={[styles.pickerItem, enrollStudentId === s.id && styles.pickerItemSelected]} onPress={() => setEnrollStudentId(s.id)}>
-                        <Text style={[styles.pickerItemText, enrollStudentId === s.id && styles.pickerItemTextSelected]}>{s.profiles?.full_name} ({s.admission_no})</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Section (Optional)</Text>
-                <View style={styles.pickerContainer}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <TouchableOpacity style={[styles.sectionOption, !enrollSectionId && styles.sectionOptionSelected]} onPress={() => setEnrollSectionId('')}>
-                      <Text style={[styles.sectionOptionText, !enrollSectionId && styles.sectionOptionTextSelected]}>None</Text>
-                    </TouchableOpacity>
-                    {sections.map(s => (
-                      <TouchableOpacity key={s.id} style={[styles.sectionOption, enrollSectionId === s.id && styles.sectionOptionSelected]} onPress={() => setEnrollSectionId(s.id)}>
-                        <Text style={[styles.sectionOptionText, enrollSectionId === s.id && styles.sectionOptionTextSelected]}>{s.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Roll Number</Text>
-                <TextInput style={styles.input} placeholder="e.g. 01" value={enrollRoll} onChangeText={setEnrollRoll} keyboardType="numeric" />
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setEnrollModalVisible(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={handleEnroll} disabled={saving}><Text style={styles.saveText}>{saving ? 'Enrolling...' : 'Enroll'}</Text></TouchableOpacity>
             </View>
           </View>
         </View>
@@ -773,6 +976,74 @@ export default function ClassDetailsScreen() {
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelButton} onPress={() => setCtModalVisible(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
               <TouchableOpacity style={styles.saveButton} onPress={handleSetClassTeacher} disabled={saving}><Text style={styles.saveText}>{saving ? 'Saving...' : 'Set Class Teacher'}</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CSV Student Preview Modal */}
+      <Modal visible={previewStudentModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { height: '85%' }]}>
+            <View style={styles.modalDragIndicator} />
+            <Text style={styles.modalTitle}>Review Student Data ({previewStudentData.length})</Text>
+            
+            <View style={styles.previewHeaderRow}>
+              <Text style={[styles.previewHeaderText, { flex: 2 }]}>Name & Email</Text>
+              <Text style={[styles.previewHeaderText, { flex: 1.5 }]}>Adm No & DOB</Text>
+            </View>
+            
+            <FlatList
+              data={previewStudentData}
+              keyExtractor={(_, index) => index.toString()}
+              style={{ flex: 1, marginBottom: 16 }}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item, index }) => (
+                <View style={styles.previewRow}>
+                  <View style={{ flex: 2, marginRight: 8 }}>
+                    <TextInput
+                      style={[styles.previewInput, { marginBottom: 8 }]}
+                      value={item.fullName}
+                      onChangeText={(val) => updatePreviewStudentItem(index, 'fullName', val)}
+                      placeholder="Full Name"
+                    />
+                    <TextInput
+                      style={styles.previewInput}
+                      value={item.email}
+                      onChangeText={(val) => updatePreviewStudentItem(index, 'email', val)}
+                      placeholder="Email"
+                      keyboardType="email-address"
+                    />
+                  </View>
+                  <View style={{ flex: 1.5 }}>
+                    <TextInput
+                      style={[styles.previewInput, { marginBottom: 8 }]}
+                      value={item.admissionNo}
+                      onChangeText={(val) => updatePreviewStudentItem(index, 'admissionNo', val)}
+                      placeholder="Adm No"
+                    />
+                    <TextInput
+                      style={styles.previewInput}
+                      value={item.dateOfBirth}
+                      onChangeText={(val) => updatePreviewStudentItem(index, 'dateOfBirth', val)}
+                      placeholder="DOB (DD/MM/YYYY)"
+                    />
+                  </View>
+                </View>
+              )}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setPreviewStudentModalVisible(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.saveButton, (uploadingStudentCsv) && { opacity: 0.7 }]} 
+                onPress={confirmStudentCsvUpload} 
+                disabled={uploadingStudentCsv}
+              >
+                <Text style={styles.saveText}>{uploadingStudentCsv ? 'Enrolling...' : 'Confirm Upload'}</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

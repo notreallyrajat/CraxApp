@@ -1,10 +1,11 @@
+import React, { useState, useEffect } from 'react';
 import { Drawer } from 'expo-router/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Image, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Image, Platform, Keyboard } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { supabase } from '../../lib/supabase';
-import { useRouter, usePathname, useNavigation } from 'expo-router';
+import { useRouter, usePathname, useNavigation, useSegments } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import CraxLogoSvg from '../../components/CraxLogoSvg';
 
@@ -12,12 +13,30 @@ function BottomTabBar() {
   const router = useRouter();
   const navigation = useNavigation();
   const pathname = usePathname();
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    return () => {
+      keyboardDidHideListener.remove();
+      keyboardDidShowListener.remove();
+    };
+  }, []);
 
   const isDashboard = pathname === '/' || pathname === '/index' || pathname === '/(student)' || pathname === '/(student)/index';
   const isAcademics = pathname === '/documents' || pathname === '/(student)/documents';
   const isAnnouncements = pathname === '/announcements' || pathname === '/(student)/announcements';
   const isSchedule = pathname === '/timetable' || pathname === '/(student)/timetable';
   const isChat = pathname.startsWith('/chat') || pathname.startsWith('/(student)/chat');
+
+  if (Platform.OS === 'ios' && isKeyboardVisible) return null;
 
   return (
     <View style={styles.bottomTabBar}>
@@ -97,6 +116,8 @@ import { ActivityIndicator } from 'react-native';
 
 export default function StudentLayout() {
   const { isAuthorized } = useRoleGuard('student');
+  const segments = useSegments();
+  const isDetailScreen = segments.includes('chat') && segments[segments.length - 1] !== 'index' && segments[segments.length - 1] !== 'chat';
 
   if (isAuthorized === null) {
     return (

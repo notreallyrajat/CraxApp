@@ -1,84 +1,50 @@
-# CraxNet Institutional OS - Product Requirements Document (PRD)
+# School Management System (CraxNet App)
 
-## 📌 Product Overview
-CraxNet Institutional OS is a modern, cross-platform educational management system built on React Native (Expo) and Supabase. It serves as a centralized hub connecting Students, Teachers, and Administrators through highly tailored, glassmorphic "Institutional OS" interfaces. 
+A modern, comprehensive, and scalable School Management System built with React Native (Expo) and Supabase. The platform provides dedicated portals for Administrators, Teachers, and Students, all wrapped in a sleek, "Institutional OS" glassmorphic design language.
 
-The application is built with a focus on real-time data, premium minimalist aesthetics, and mobile-first accessibility. It transitions traditional school management into a fluid, user-friendly digital experience.
+## 🚀 Key Features
 
----
+### 👑 Administrator Portal
+The Admin dashboard is the command center for managing the entire school's operations.
 
-## 🎯 Core Objectives
-1. **Unify Stakeholders**: Provide distinct, secure, and fully functional dashboards for Admins, Teachers, and Students.
-2. **Real-time Synchronization**: Utilize Supabase for instant updates on announcements, attendance, and assignments.
-3. **Premium UX/UI**: Implement a minimalist, glassmorphic design system (The "Institutional OS" aesthetic) replacing clunky traditional ERP layouts.
-4. **Platform Flexibility**: Seamlessly deployable across iOS, Android, and Web from a single codebase.
+* **Batch Student Onboarding:** Upload large batches of student data via CSV files. The system automatically provisions user accounts and handles complex edge cases like duplicate email handling.
+* **Class & Section Management:** Create classes, organize them into sections, and define academic structures seamlessly.
+* **Smart Subject Allocation ("Create Once, Use Forever"):** Add subjects to a global repository. When configuring new classes, simply select from existing subjects without having to type out identical names and codes repeatedly. The database structure cleanly supports multi-class subject mapping.
+* **Advanced Student Enrollment:** 
+  * Full-screen enrollment UI.
+  * Real-time search by name or admission number.
+  * Sort lists alphabetically or by Date of Birth (DOB).
+  * Bulk selection tools to enroll entire cohorts at once.
+  * **Strict Enrollment Rule:** The system automatically filters out students who are already enrolled elsewhere, guaranteeing that a student can mathematically only belong to one class at a time.
+* **Teacher Management:** Assign teachers to specific subjects within sections and designate Class Teachers with specialized privileges.
 
----
+### 🧑‍🏫 Teacher Portal
+A highly functional, data-driven dashboard tailored for educators.
 
-## 👤 User Roles & Dashboards
+* **"Institutional OS" Aesthetics:** A clean, professional UI matching the premium student experience.
+* **Attendance Management:** Class Teachers have exclusive permissions to seamlessly mark and manage attendance for their assigned classes.
+* **Dynamic Timetables:** View personalized schedules and teaching assignments.
+* **Personalized Avatars:** Local avatar selection and seamless account management.
 
-### 1. Student Dashboard (The "Student Portal")
-**Objective**: Empower students with a clear, beautiful overview of their academic life, minimizing anxiety and maximizing engagement.
+### 🎓 Student Dashboard
+A beautiful, engaging, and modern interface designed for the end-user.
 
-**Key Features:**
-* **Dynamic ID Card & Avatar System**: A personalized banner displaying the student's name, class, and roll number, featuring an interactive Avatar selector offering 12 modern, South-Asian localized "Micah-style" vectors.
-* **Real-time Analytics Grid**: Four minimalist stat cards displaying overall attendance, pending homework, upcoming exams, and active announcements.
-* **"Today's Timetable" Widget**: Fetches the live daily schedule from the backend, filtering out past classes and highlighting active/upcoming periods.
-* **Smart Bottom Navigation**: A persistent, beautifully styled bottom tab bar giving instant access to:
-  * **Dashboard** (Home)
-  * **Academics** (Resources & Study Materials)
-  * **Announcements** (Notice Board)
-  * **Schedule** (Full weekly timetable)
-  * **Chat** (Direct communication with teachers)
-* **Quick Actions**: Icon-based shortcuts for high-frequency tasks like *Bus Tracking* and *Pay Fees*.
-* **Secure Logout**: Handled gracefully within the profile avatar modal.
+* **Glassmorphic Design:** Vibrant colors, smooth gradients, and interactive micro-animations.
+* **Live Chat & Messaging:** An integrated chat module with an Android-optimized UI that ensures smooth interaction without keyboard overlap issues.
+* **Timetable Module:** Dynamic data fetching that displays the student's exact daily schedule based on their specific class and section enrollments.
+* **Academic Records:** View examination results and performance metrics (currently seeded for testing).
 
-### 2. Teacher Dashboard (The "Faculty Workspace")
-**Objective**: Provide educators with frictionless tools to manage classrooms, grade students, and communicate without administrative overhead.
+## 🛠️ Technology Stack
 
-**Key Features:**
-* **Teacher ID Card**: A glassmorphic banner showing Department, Employee ID, and a radial progress chart visualizing their classes' overall attendance rate.
-* **Faculty Stats Grid**: Quick insights highlighting *Assigned Classes*, *Total Students*, *Pending Tasks*, and a live *Online Status* indicator.
-* **Quick Actions Scroll**: Horizontal shortcuts to deeply integrated modules:
-  * **Attendance Management** (Marking students present/absent)
-  * **Assignments** (Creating and tracking homework)
-  * **Resources** (Uploading syllabus and study materials)
-  * **Messages** (Responding to student queries)
-* **Live Notice Board**: A beautifully formatted feed of school-wide announcements with distinct date-badge UI.
-* **Avatar & Profile Control**: Parity with the student portal, allowing teachers to select professional avatars.
+* **Frontend:** React Native, Expo, Expo Router
+* **Styling:** Custom Vanilla CSS & StyleSheet (Glassmorphism & Modern Web/App Aesthetics)
+* **Backend:** Supabase (PostgreSQL Database)
+* **Authentication:** Supabase Auth (JWT)
+* **Cloud Logic:** Supabase Edge Functions (e.g., `manage-users` for secure role and account provisioning)
+* **Data Processing:** PapaParse for client-side CSV parsing
 
-### 3. Admin Dashboard (The "Command Center")
-**Objective**: Give school administrators total, secure control over the ecosystem's data, users, and global communications.
+## ⚙️ Architecture Highlights
 
-**Key Features:**
-* **Ecosystem Analytics**: High-level statistical overviews of the entire institution (Total revenue, active users, average attendance).
-* **Role Management**: Secure creation, modification, and deletion of Student and Teacher accounts.
-* **Class & Schedule Architect**: Tools to build class hierarchies and generate daily timetables.
-* **Global Announcements**: A publishing engine to broadcast notices across the entire Institutional OS.
-* **Security & Logs**: Access to system logs to ensure compliance and monitor unauthorized access attempts.
-
----
-
-## 🚀 Future Roadmap (Upcoming Features)
-
-We are constantly evolving CraxNet. The following features are slated for the next major release cycles:
-
-1. **Live GPS Bus Tracking**: 
-   * Integrating real-time geolocation so students and parents can track their assigned school bus on a live map within the app.
-2. **Integrated Payment Gateway (Pay Fees)**: 
-   * A seamless, secure module allowing parents to pay tuition and track invoice history directly through the dashboard.
-3. **AI-Powered "God Stats" Analytics**:
-   * Implementing machine learning to analyze student performance trends and predict academic momentum, alerting teachers to struggling students early.
-4. **Interactive Exam Portal**:
-   * Allowing teachers to construct and administer secure multiple-choice and short-answer quizzes directly within the app.
-5. **Push Notification Infrastructure**:
-   * Migrating from pull-based data updates to real-time push notifications for instant alerts on assignments and bus proximity.
-
----
-
-## 🛠 Tech Stack
-* **Frontend**: React Native, Expo, Expo Router
-* **Backend/BaaS**: Supabase (PostgreSQL, Auth, Edge Functions)
-* **Styling**: Vanilla React Native StyleSheet (Glassmorphic & Flat Vector focus)
-* **State Management**: React Hooks & Context API
-* **Icons & Assets**: Expo Vector Icons (Ionicons), Dicebear API (Local Assets)
+* **Role-Based Access Control (RBAC):** Strict boundaries between Admin, Teacher, and Student routes.
+* **Database Integrity:** Utilizes PostgreSQL unique constraints customized for multi-tenant mapping (e.g., allowing the same subject code across different classes while preventing true duplicates).
+* **Cross-Platform Compatibility:** UI optimized for seamless operation on both Android and iOS devices, handling edge cases like virtual keyboards and safe area insets.

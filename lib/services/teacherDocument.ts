@@ -3,12 +3,14 @@ import { decode } from 'base64-arraybuffer';
 
 export const TEACHER_DOCS_BUCKET = "school-resources";
 
+export type DocumentVisibility = 'admin_only' | 'all_classes' | 'all_teachers' | 'specific_class';
+
 export async function getMyDocuments(teacherId: string) {
   return supabase
     .from("teacher_documents")
     .select(`
       id, title, description, file_path, file_url, file_name,
-      file_size, mime_type, is_public, created_at,
+      file_size, mime_type, is_public, visibility, created_at,
       document_access ( class_id, classes ( id, name ) )
     `)
     .eq("teacher_id", teacherId)
@@ -24,6 +26,7 @@ export async function createDocument(data: {
   fileName: string;
   fileSize?: number;
   mimeType?: string;
+  visibility?: DocumentVisibility;
 }) {
   return supabase
     .from("teacher_documents")
@@ -37,9 +40,45 @@ export async function createDocument(data: {
       file_size: data.fileSize || null,
       mime_type: data.mimeType || null,
       is_public: false,
+      visibility: data.visibility || 'admin_only',
     })
     .select()
     .single();
+}
+
+export async function updateDocumentVisibility(
+  documentId: string,
+  visibility: DocumentVisibility,
+  classIds: string[]
+) {
+  // Update the visibility field
+  const { error: visErr } = await supabase
+    .from("teacher_documents")
+    .update({ visibility })
+    .eq("id", documentId);
+
+  if (visErr) return { error: visErr };
+
+  // Clear existing access entries
+  await supabase.from("document_access").delete().eq("document_id", documentId);
+
+  // If specific_class, insert the selected class access rows
+  if (visibility === 'specific_class' && classIds.length > 0) {
+    const { error: accessErr } = await supabase.from("document_access").insert(
+      classIds.map((cid) => ({ document_id: documentId, class_id: cid }))
+    );
+    if (accessErr) return { error: accessErr };
+  }
+
+  // If all_classes, insert ALL classes (we need the full class list from caller)
+  if (visibility === 'all_classes' && classIds.length > 0) {
+    const { error: accessErr } = await supabase.from("document_access").insert(
+      classIds.map((cid) => ({ document_id: documentId, class_id: cid }))
+    );
+    if (accessErr) return { error: accessErr };
+  }
+
+  return { error: null };
 }
 
 export async function deleteDocument(id: string, filePath: string) {
@@ -63,19 +102,17 @@ export async function uploadTeacherFileMobile(
   mimeType: string,
   teacherId: string
 ) {
-  // 1. Strict PDF Protocol
+  // Strict PDF Protocol
   if (mimeType !== "application/pdf" && !fileName.toLowerCase().endsWith('.pdf')) {
-    return { data: null, error: new Error("Only PDF files are allowed for teacher resources.") };
+    return { data: null, error: new Error("Only PDF files are allowed for institutional resources.") };
   }
 
   const safeName = fileName.replace(/\s+/g, "_");
   const path = `teachers/${teacherId}/${Date.now()}_${safeName}`;
 
   try {
-    // 2. Cloud Optimization Layer
-    console.log(`[Cloud Optimizer] Processing faculty resource: ${safeName}`);
+    console.log(`[Cloud Optimizer] Processing institutional document: ${safeName}`);
     
-    // Read internal base64
     const base64Data = await FileSystem.readAsStringAsync(fileUri, {
       encoding: 'base64',
     });
@@ -123,4 +160,11 @@ export async function getDocumentsForClass(classId: string) {
       )
     `)
     .eq("class_id", classId);
+}
+
+export async function getAllClasses() {
+  return supabase
+    .from("classes")
+    .select("id, name")
+    .order("name", { ascending: true });
 }

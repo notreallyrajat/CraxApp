@@ -11,10 +11,11 @@ import {
   TextInput,
   Modal,
   Platform,
-  Linking
+  Linking,
+  BackHandler
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { getTeacherProfile, getAssignedClasses } from '../../lib/services/teacher';
 import { 
@@ -45,6 +46,35 @@ export default function TeacherMarksScreen() {
   const [canEdit, setCanEdit] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const router = useRouter();
+  const navigation = useNavigation();
+
+  useFocusEffect(
+    useCallback(() => {
+      const handleBackPress = () => {
+        if (view !== 'classes') {
+          if (view === 'enter') setView('subjects');
+          else if (view === 'subjects') setView('exams');
+          else if (view === 'exams') setView('classes');
+          return true; // Prevent default behavior
+        }
+        return false; // Allow default behavior
+      };
+
+      const backSubscription = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+      
+      const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+        if (view !== 'classes') {
+          e.preventDefault();
+          handleBackPress();
+        }
+      });
+      
+      return () => {
+        backSubscription.remove();
+        unsubscribe();
+      };
+    }, [navigation, view])
+  );
 
   const loadTeacher = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -159,9 +189,43 @@ export default function TeacherMarksScreen() {
   };
 
   const handleSave = async () => {
+    const rowsToSave = rows.filter((r) => (r.marksObtained || "").toString().trim() !== "");
+    if (rowsToSave.length === 0) return;
+
+    const totalMarks = parseFloat(activeExamSubject.total_marks);
+    
+    for (const r of rowsToSave) {
+      const marks = parseFloat(r.marksObtained);
+      if (isNaN(marks) || marks < 0 || marks > totalMarks) {
+        Alert.alert(
+          "Invalid Marks Entry",
+          `The marks entered for ${r.fullName} (${r.marksObtained}) are invalid. Marks must be a number between 0 and the maximum allowed (${totalMarks}).`,
+          [{ text: "Okay, I'll fix it" }]
+        );
+        return;
+      }
+    }
+
+    const hasExisting = rowsToSave.some(r => r.resultId);
+
+    if (hasExisting) {
+      Alert.alert(
+        "Update Existing Records?",
+        "You are updating marks for students who already have records. This will drop previous marks and insert new ones. Do you want to proceed?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Drop & Insert New", style: "destructive", onPress: () => performSave(rowsToSave) }
+        ]
+      );
+    } else {
+      performSave(rowsToSave);
+    }
+  };
+
+  const performSave = async (rowsToSave: any[]) => {
     setSaving(true);
     try {
-      const { error } = await saveResults(activeExamSubject.id, rows.map(r => ({
+      const { error } = await saveResults(activeExamSubject.id, rowsToSave.map(r => ({
         id: r.resultId,
         studentId: r.studentId,
         marksObtained: r.marksObtained,
@@ -170,7 +234,8 @@ export default function TeacherMarksScreen() {
       })));
       if (error) throw error;
       Alert.alert("Success", "Marks saved successfully!");
-      setView('subjects');
+      // Reload results to ensure resultIds are updated
+      openSubject(activeExamSubject);
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to save marks.");
     } finally {
@@ -179,13 +244,48 @@ export default function TeacherMarksScreen() {
   };
 
   const handleUploadSheet = async (sid: string) => {
+    const row = rows.find(r => r.studentId === sid);
+    if (!row?.resultId) {
+      Alert.alert("Note", "Please save marks for this student first before attaching an answer sheet.");
+      return;
+    }
+
+    if (row.answerSheetUrl && row.answerSheetPath) {
+      Alert.alert(
+        "Existing Answer Sheet",
+        "An answer sheet is already attached. Do you want to drop the previous sheet and upload a new one?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Drop & Upload New", 
+            style: "destructive",
+            onPress: async () => {
+              setUploading(sid);
+              try {
+                await clearAnswerSheet(row.resultId, row.answerSheetPath);
+                setRows(prev => prev.map(r => r.studentId === sid ? { ...r, answerSheetUrl: null, answerSheetPath: null } : r));
+                setUploading(null);
+                setTimeout(() => pickAndUploadSheet(sid, row.resultId), 500);
+              } catch (err: any) {
+                setUploading(null);
+                Alert.alert("Error", "Failed to clear existing sheet: " + err.message);
+              }
+            }
+          }
+        ]
+      );
+    } else {
+      pickAndUploadSheet(sid, row.resultId);
+    }
+  };
+
+  const pickAndUploadSheet = async (sid: string, resultId: string) => {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
       if (result.canceled) return;
 
       const file = result.assets[0];
       
-      // Strict PDF Protocol
       if (file.mimeType !== "application/pdf" && !file.name.toLowerCase().endsWith('.pdf')) {
         Alert.alert("Invalid Format", "Only PDF files are accepted for academic evidence.");
         return;
@@ -203,14 +303,9 @@ export default function TeacherMarksScreen() {
 
       if (error) throw error;
 
-      const row = rows.find(r => r.studentId === sid);
-      if (row?.resultId) {
-        await updateAnswerSheet(row.resultId, data.publicUrl, data.path);
-        setRows(prev => prev.map(r => r.studentId === sid ? { ...r, answerSheetUrl: data.publicUrl, answerSheetPath: data.path } : r));
-        Alert.alert("Success", "Answer sheet optimized and attached.");
-      } else {
-        Alert.alert("Note", "Please save marks for this student first before attaching an answer sheet.");
-      }
+      await updateAnswerSheet(resultId, data.publicUrl, data.path);
+      setRows(prev => prev.map(r => r.studentId === sid ? { ...r, answerSheetUrl: data.publicUrl, answerSheetPath: data.path } : r));
+      Alert.alert("Success", "Answer sheet attached.");
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to upload answer sheet.");
     } finally {
@@ -249,7 +344,7 @@ export default function TeacherMarksScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 }}>
         {loading && <ActivityIndicator color="#1a1d2e" style={{ marginTop: 20 }} />}
         
         {!loading && view === 'classes' && assignedClasses.map(cls => (
@@ -427,7 +522,7 @@ const styles = StyleSheet.create({
   rowBottom: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
   remarksInput: { flex: 1, fontSize: 13, color: '#475569', height: 36, paddingHorizontal: 10, backgroundColor: '#f8fafc', borderRadius: 8 },
   sheetBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
-  saveBtn: { backgroundColor: '#1a1d2e', margin: 20, padding: 18, borderRadius: 18, alignItems: 'center', elevation: 4 },
+  saveBtn: { backgroundColor: '#1a1d2e', margin: 20, marginBottom: 100, padding: 18, borderRadius: 18, alignItems: 'center', elevation: 4 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' }
 });

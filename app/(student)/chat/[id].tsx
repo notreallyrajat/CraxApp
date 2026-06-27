@@ -9,12 +9,15 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert
+  Alert,
+  Keyboard
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import { getMessagesBetween, sendMessage, subscribeToMessages } from '../../../lib/services/chat';
+
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function StudentChatDetailScreen() {
   const { id: teacherProfileId } = useLocalSearchParams();
@@ -27,8 +30,33 @@ export default function StudentChatDetailScreen() {
   
   const scrollViewRef = useRef<ScrollView>(null);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidHideListener.remove();
+      keyboardDidShowListener.remove();
+    };
+  }, []);
 
   useEffect(() => {
+    let subscription: any;
+
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -55,18 +83,20 @@ export default function StudentChatDetailScreen() {
         setLoading(false);
         
         // Subscribe
-        const subscription = subscribeToMessages(profile.id, (payload) => {
+        subscription = subscribeToMessages(profile.id, (payload) => {
           if (payload.new.sender_id === teacherProfileId) {
             setMessages(prev => [...prev, payload.new]);
           }
         });
-
-        return () => {
-          subscription.unsubscribe();
-        };
       }
     }
     init();
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, [teacherProfileId]);
 
   const handleSend = async () => {
@@ -98,7 +128,7 @@ export default function StudentChatDetailScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={28} color="#0f172a" />
         </TouchableOpacity>
@@ -146,7 +176,7 @@ export default function StudentChatDetailScreen() {
         })}
       </ScrollView>
 
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, { paddingBottom: (Platform.OS === 'ios' && isKeyboardVisible) ? Math.max(insets.bottom, 16) : Math.max(insets.bottom, 16) + 75 }]}>
         <View style={styles.inputWrapper}>
           <TextInput 
             style={styles.input}
@@ -173,7 +203,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FE' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { 
-    marginTop: Platform.OS === 'android' ? 40 : 50,
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -225,7 +254,6 @@ const styles = StyleSheet.create({
   
   inputContainer: { 
     padding: 16, 
-    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9'

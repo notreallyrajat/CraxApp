@@ -13,11 +13,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { getStudentProfile } from '../../lib/services/student';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import { decode } from 'base64-arraybuffer';
+import { Modal, Alert } from 'react-native';
 
 export default function StudentAssignmentsScreen() {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Submission States
+  const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
+  const [selectedFile, setSelectedFile] = useState<any>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [studentId, setStudentId] = useState<string>('');
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  
   const router = useRouter();
 
   const loadData = useCallback(async () => {
@@ -27,6 +39,15 @@ export default function StudentAssignmentsScreen() {
       
       const { data: profile } = await getStudentProfile(session.user.id);
       if (profile?.students) {
+        setStudentId(profile.students.id);
+        
+        // Get submissions
+        const { data: subsData } = await supabase
+          .from('assignment_submissions')
+          .select('assignment_id')
+          .eq('student_id', profile.students.id);
+        setSubmissions(subsData || []);
+        
         // Get class enrollments
         const { data: enrData } = await supabase
           .from('enrollments')
@@ -66,6 +87,74 @@ export default function StudentAssignmentsScreen() {
     loadData();
   };
 
+  const handleSelectFile = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true
+      });
+      
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setSelectedFile(res.assets[0]);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const compressPdf = async (uri: string) => {
+    // Simulated PDF compression
+    // True PDF compression requires custom native modules or external APIs
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return uri; 
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedFile || !selectedAssignment) return;
+    setSubmitting(true);
+    try {
+      // Compress
+      const compressedUri = await compressPdf(selectedFile.uri);
+      
+      // Upload
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${studentId}_${selectedAssignment.id}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+      
+      const base64 = await FileSystem.readAsStringAsync(compressedUri, { encoding: FileSystem.EncodingType.Base64 });
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('assignments')
+        .upload(filePath, decode(base64), { contentType: 'application/pdf' });
+        
+      if (uploadError) throw uploadError;
+      
+      const { data: publicUrlData } = supabase.storage.from('assignments').getPublicUrl(filePath);
+      const fileUrl = publicUrlData.publicUrl;
+      
+      // Insert to assignment_submissions
+      const { error: dbError } = await supabase.from('assignment_submissions').insert({
+        assignment_id: selectedAssignment.id,
+        student_id: studentId,
+        file_path: filePath,
+        file_url: fileUrl,
+        submission_text: "Submitted PDF"
+      });
+      
+      if (dbError) throw dbError;
+      
+      Alert.alert("Success", "Assignment submitted for evaluation!");
+      setSelectedAssignment(null);
+      setSelectedFile(null);
+      loadData();
+    } catch (error) {
+      Alert.alert("Error", "Failed to submit assignment.");
+      console.error(error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const isOverdue = (date: string) => {
     if (!date) return false;
     return new Date(date) < new Date();
@@ -101,11 +190,19 @@ export default function StudentAssignmentsScreen() {
         ) : (
           assignments.map(asn => {
             const overdue = isOverdue(asn.due_date);
+            const submitted = submissions.some(s => s.assignment_id === asn.id);
+            const canSubmit = !overdue && !submitted;
+            
             return (
-              <View key={asn.id} style={[styles.asnCard, overdue && styles.overdueCard]}>
+              <TouchableOpacity 
+                key={asn.id} 
+                style={[styles.asnCard, overdue && styles.overdueCard, submitted && styles.submittedCard]}
+                disabled={!canSubmit}
+                onPress={() => setSelectedAssignment(asn)}
+              >
                 <View style={styles.asnHeader}>
-                  <View style={[styles.iconBox, { backgroundColor: overdue ? '#FEF2F2' : '#e0e7ff', marginRight: 16 }]}>
-                    <Ionicons name="clipboard" size={24} color={overdue ? '#EF4444' : '#3B3D6B'} />
+                  <View style={[styles.iconBox, { backgroundColor: overdue ? '#FEF2F2' : (submitted ? '#ECFDF5' : '#e0e7ff'), marginRight: 16 }]}>
+                    <Ionicons name={submitted ? "checkmark-circle" : "clipboard"} size={24} color={overdue ? '#EF4444' : (submitted ? '#10B981' : '#3B3D6B')} />
                   </View>
                   <View style={styles.titleInfo}>
                     <Text style={styles.asnTitle}>{asn.title}</Text>
@@ -130,17 +227,54 @@ export default function StudentAssignmentsScreen() {
                       Due: {asn.due_date ? new Date(asn.due_date).toLocaleDateString() : 'No deadline'}
                     </Text>
                   </View>
-                  {overdue && (
+                  {overdue && !submitted && (
                     <View style={styles.overdueBadge}>
                       <Text style={styles.overdueBadgeText}>Overdue</Text>
                     </View>
                   )}
+                  {submitted && (
+                    <View style={[styles.overdueBadge, {backgroundColor: '#D1FAE5'}]}>
+                      <Text style={[styles.overdueBadgeText, {color: '#059669'}]}>Submitted</Text>
+                    </View>
+                  )}
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })
         )}
       </ScrollView>
+
+      {/* Submission Modal */}
+      <Modal visible={!!selectedAssignment} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Submit Assignment</Text>
+            {selectedAssignment && (
+              <Text style={styles.modalSub}>{selectedAssignment.title}</Text>
+            )}
+            
+            <TouchableOpacity style={styles.fileUploadBtn} onPress={handleSelectFile}>
+              <Ionicons name="document-attach" size={24} color="#3B3D6B" />
+              <Text style={styles.fileUploadText}>
+                {selectedFile ? selectedFile.name : 'Select PDF File'}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setSelectedAssignment(null); setSelectedFile(null); }}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.submitBtn, !selectedFile && { opacity: 0.5 }]} 
+                onPress={handleSubmit} 
+                disabled={!selectedFile || submitting}
+              >
+                <Text style={styles.submitBtnText}>{submitting ? 'Uploading...' : 'Submit'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -169,7 +303,6 @@ const styles = StyleSheet.create({
     marginBottom: 16, 
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3
   },
-  // Assignment styles
   asnCard: { 
     backgroundColor: '#fff', 
     borderRadius: 20, 
@@ -178,6 +311,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3
   },
   overdueCard: { borderLeftWidth: 4, borderLeftColor: '#EF4444' },
+  submittedCard: { borderLeftWidth: 4, borderLeftColor: '#10B981', opacity: 0.8 },
   asnHeader: { flexDirection: 'row', alignItems: 'center' },
   iconBox: { width: 52, height: 52, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   titleInfo: { flex: 1 },
@@ -192,5 +326,18 @@ const styles = StyleSheet.create({
   dueDateText: { fontSize: 13, color: '#64748b', fontWeight: '600' },
   overdueText: { color: '#EF4444', fontWeight: '700' },
   overdueBadge: { backgroundColor: '#FEF2F2', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  overdueBadgeText: { fontSize: 11, fontWeight: '800', color: '#EF4444' }
+  overdueBadgeText: { fontSize: 11, fontWeight: '800', color: '#EF4444' },
+
+  // Modal styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 28, padding: 24 },
+  modalTitle: { fontSize: 22, fontWeight: '800', color: '#1a1d2e', marginBottom: 5 },
+  modalSub: { fontSize: 14, color: '#64748b', marginBottom: 20 },
+  fileUploadBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FE', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', gap: 12 },
+  fileUploadText: { fontSize: 14, color: '#3B3D6B', fontWeight: '600', flex: 1 },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 25 },
+  cancelBtn: { flex: 1, padding: 16, borderRadius: 15, backgroundColor: '#F1F5F9', alignItems: 'center' },
+  cancelBtnText: { fontWeight: '700', color: '#64748b' },
+  submitBtn: { flex: 1, padding: 16, borderRadius: 15, backgroundColor: '#1a1d2e', alignItems: 'center' },
+  submitBtnText: { fontWeight: '700', color: '#fff' }
 });
