@@ -339,7 +339,7 @@ export default function TeacherAttendanceScreen() {
                         key={s} 
                         onPress={() => {
                           if (isLocked) {
-                             Alert.alert("Locked", "You cannot modify attendance after 30 minutes. Please request an unlock.");
+                             Alert.alert("Locked", "You cannot modify attendance after saving. Please request an unlock from the admin.");
                              return;
                           }
                           setStatus(row.studentId, s);

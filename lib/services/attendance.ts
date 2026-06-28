@@ -192,10 +192,8 @@ export async function saveAllRecords(
   const firstError = results.find((r) => r.error);
 
   if (!session?.locked_at || session?.unlock_request_status === 'approved') {
-    const lockedAt = new Date();
-    lockedAt.setMinutes(lockedAt.getMinutes() + 30);
     await supabase.from('attendance_sessions').update({ 
-      locked_at: lockedAt.toISOString(),
+      locked_at: new Date().toISOString(),
       unlock_request_status: 'none'
     }).eq('id', sessionId);
   }
