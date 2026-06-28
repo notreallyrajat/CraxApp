@@ -16,7 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-import { getClassTeacherAssignments, getTeacherProfile } from '../../lib/services/teacher';
+import { getAssignedClasses, getTeacherProfile } from '../../lib/services/teacher';
 import { 
   getSessionsForClass, 
   getOrCreateSession, 
@@ -53,13 +53,17 @@ export default function TeacherAttendanceScreen() {
     const { data: profile } = await getTeacherProfile(session.user.id);
     if (profile?.teachers) {
       setTeacher(profile.teachers);
-      const classesRes = await getClassTeacherAssignments(profile.teachers.id);
+      const classesRes = await getAssignedClasses(profile.teachers.id);
       
-      const validClasses = (classesRes.data || []).map((c: any) => ({
-         ...c,
-         section_id: null,
-         sections: null
-      }));
+      const uniqueMap = new Map();
+      (classesRes.data || []).forEach((c: any) => {
+         const key = `${c.class_id}-${c.section_id || 'none'}`;
+         if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, c);
+         }
+      });
+
+      const validClasses = Array.from(uniqueMap.values());
       setAssignedClasses(validClasses);
       
       // Check if we came from dashboard with specific class
@@ -254,7 +258,7 @@ export default function TeacherAttendanceScreen() {
             <View style={styles.emptyState}>
               <Ionicons name="folder-open-outline" size={60} color="#cbd5e1" />
               <Text style={styles.emptyTitle}>No Classes Allotted</Text>
-              <Text style={styles.emptySubtitle}>You have not been assigned as a class teacher for any section yet. Only class teachers can mark attendance.</Text>
+              <Text style={styles.emptySubtitle}>You have not been assigned to any class or section yet. Both class teachers and subject teachers can mark attendance.</Text>
             </View>
           ) : (
             assignedClasses.map(cls => (
