@@ -195,12 +195,7 @@ export default function TeacherLayout() {
         />
         <Drawer.Screen
           name="chat/index"
-          options={{
-            drawerLabel: 'Student Chats',
-            drawerIcon: ({ color, size }) => (
-              <Ionicons name="chatbubbles" size={22} color={color} />
-            ),
-          }}
+          options={{ drawerItemStyle: { display: 'none' }, headerShown: false }}
         />
 
         <Drawer.Screen

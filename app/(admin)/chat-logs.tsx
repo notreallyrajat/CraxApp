@@ -1,97 +1,70 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  ActivityIndicator, 
-  Platform,
-  RefreshControl
-} from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Image, Platform, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabase';
-import { getChatLogsForAdmin } from '../../lib/services/chat';
+import { useRouter } from 'expo-router';
 
-export default function AdminChatLogsScreen() {
-  const [logs, setLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const loadLogs = async () => {
-    const { data } = await getChatLogsForAdmin();
-    setLogs(data || []);
-    setLoading(false);
-    setRefreshing(false);
-  };
-
-  useEffect(() => {
-    loadLogs();
-  }, []);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadLogs();
-  };
-
-  if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color="#1a1d2e" /></View>;
-  }
+export default function ChatPlaceholderScreen() {
+  const router = useRouter();
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Communication Logs</Text>
-        <Text style={styles.headerSub}>Monitor teacher-student interactions</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={28} color="#0f172a" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Messages</Text>
+          <View style={{ width: 28 }} />
+        </View>
       </View>
 
-      <ScrollView 
-        style={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1a1d2e']} />}
-      >
-        {logs.map(log => (
-          <View key={log.id} style={styles.logCard}>
-            <View style={styles.logHeader}>
-              <View style={styles.participant}>
-                <Text style={styles.roleLabel}>SENDER</Text>
-                <Text style={styles.name}>{log.sender?.full_name}</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={16} color="#CBD5E1" />
-              <View style={styles.participant}>
-                <Text style={styles.roleLabel}>RECEIVER</Text>
-                <Text style={styles.name}>{log.receiver?.full_name}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.msgBody}>
-              <Text style={styles.msgText}>{log.content}</Text>
-              <Text style={styles.msgTime}>{new Date(log.created_at).toLocaleString()}</Text>
-            </View>
-          </View>
-        ))}
-      </ScrollView>
+      <View style={styles.content}>
+        <Image 
+          source={require('../../assets/images/ai_1.png')} 
+          style={styles.image}
+          resizeMode="contain"
+        />
+        <Text style={styles.title}>Coming Soon!</Text>
+        <Text style={styles.subtitle}>We're bringing an awesome new chat experience in the next update. Stay tuned!</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { flex: 1, backgroundColor: '#F8F9FE' },
   header: { 
-    backgroundColor: '#1a1d2e', 
-    paddingTop: Platform.OS === 'android' ? 40 : 15, 
-    paddingBottom: 25, 
-    paddingHorizontal: 20 
+    marginTop: Platform.OS === 'android' ? 50 : 60, 
+    marginBottom: 10,
+    paddingHorizontal: 20
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#fff' },
-  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
-  content: { flex: 1, padding: 15 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  logCard: { backgroundColor: '#fff', borderRadius: 16, padding: 15, marginBottom: 12, elevation: 1 },
-  logHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  participant: { flex: 1 },
-  roleLabel: { fontSize: 9, fontWeight: '800', color: '#94A3B8', marginBottom: 2 },
-  name: { fontSize: 13, fontWeight: '700', color: '#1a1d2e' },
-  msgBody: { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 12 },
-  msgText: { fontSize: 14, color: '#475569', lineHeight: 20 },
-  msgTime: { fontSize: 10, color: '#94A3B8', marginTop: 8, textAlign: 'right' }
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  backBtn: { padding: 4, marginLeft: -4 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#0f172a' },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    marginTop: -80,
+  },
+  image: {
+    width: 280,
+    height: 280,
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 24,
+    fontWeight: '500',
+  }
 });

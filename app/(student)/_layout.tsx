@@ -34,7 +34,7 @@ function BottomTabBar() {
   const isAcademics = pathname === '/documents' || pathname === '/(student)/documents';
   const isAnnouncements = pathname === '/announcements' || pathname === '/(student)/announcements';
   const isSchedule = pathname === '/timetable' || pathname === '/(student)/timetable';
-  const isChat = pathname.startsWith('/chat') || pathname.startsWith('/(student)/chat');
+  // Chat is coming soon — tab removed from UI
 
   if (Platform.OS === 'ios' && isKeyboardVisible) return null;
 
@@ -68,12 +68,7 @@ function BottomTabBar() {
          <Text style={isSchedule ? styles.tabTextActive : styles.tabText}>Schedule</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/(student)/chat/index')}>
-         <View style={isChat ? styles.tabIconActiveBg : null}>
-            <Ionicons name="chatbubbles-outline" size={isChat ? 20 : 24} color={isChat ? "#3B3D6B" : "#64748b"} />
-         </View>
-         <Text style={isChat ? styles.tabTextActive : styles.tabText}>Chat</Text>
-      </TouchableOpacity>
+
 
     </View>
   );
@@ -216,12 +211,7 @@ export default function StudentLayout() {
         />
         <Drawer.Screen
           name="chat/index"
-          options={{
-            drawerLabel: 'Chat with Teachers',
-            drawerIcon: ({ color }) => (
-              <Ionicons name="chatbubbles" size={22} color={color} />
-            ),
-          }}
+          options={{ drawerItemStyle: { display: 'none' }, headerShown: false }}
         />
         <Drawer.Screen
           name="gps"

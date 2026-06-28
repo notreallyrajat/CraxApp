@@ -60,10 +60,11 @@ export default function StudentDashboard() {
       
       const { data: profile } = await getStudentProfile(session.user.id);
       if (profile?.students) {
-        setStudent({ ...profile.students, ...profile });
-        
-        const enrollment = await supabase.from('enrollments').select('class_id').eq('student_id', profile.students.id).single();
+        const enrollment = await supabase.from('enrollments').select('class_id, classes(name)').eq('student_id', profile.students.id).single();
         const classId = enrollment.data?.class_id || '';
+        const className = enrollment.data?.classes?.name || 'Unassigned';
+
+        setStudent({ ...profile.students, ...profile, className });
 
         const { getStudentStats } = require('../../lib/services/stats');
         const statsData = await getStudentStats(profile.students.id, classId);
@@ -125,7 +126,7 @@ export default function StudentDashboard() {
   };
 
   const firstName = student?.full_name?.split(" ")[0] || 'Student';
-  const attendanceVal = stats.attendanceRate || 96; // fallback for UI inspiration matching
+  const attendanceVal = stats.attendanceRate || 0;
   
   const radius = 28;
   const strokeWidth = 5;
@@ -180,8 +181,8 @@ export default function StudentDashboard() {
           <View style={styles.idCardLeft}>
              <Image source={selectedAvatar} style={styles.idCardPic} />
              <View style={styles.idCardInfo}>
-               <Text style={styles.idCardName} numberOfLines={1}>{student?.full_name || 'Rajat Sharma'}</Text>
-               <Text style={styles.idCardClass}>Class 10-A | Roll 24</Text>
+               <Text style={styles.idCardName} numberOfLines={1}>{student?.full_name || 'Student'}</Text>
+               <Text style={styles.idCardClass}>{student?.className ? `Class ${student.className}` : 'No Class Assigned'}</Text>
              </View>
           </View>
           <View style={styles.idCardRight}>
@@ -228,12 +229,12 @@ export default function StudentDashboard() {
              </Text>
            </View>
 
-           <View style={[styles.statCardSmall, { backgroundColor: '#D4EED7' }]}>
-             <Text style={styles.statLabelTop} numberOfLines={2}>Fee Status</Text>
-             <View style={[styles.statIconBadge, { borderColor: '#2E7D32' }]}>
-               <Ionicons name="checkmark-circle-outline" size={18} color="#2E7D32" />
+           <View style={[styles.statCardSmall, { backgroundColor: '#E3F2FD' }]}>
+             <Text style={styles.statLabelTop} numberOfLines={2}>Current{'\n'}GPA</Text>
+             <View style={[styles.statIconBadge, { borderColor: '#1976D2' }]}>
+               <Ionicons name="school-outline" size={16} color="#1976D2" />
              </View>
-             <Text style={[styles.statValueMid, { color: '#1B5E20' }]}>Paid</Text>
+             <Text style={[styles.statValueMid, { color: '#0D47A1' }]}>{stats.gpa?.toFixed(1) || '0.0'}</Text>
            </View>
         </View>
 
@@ -341,10 +342,7 @@ export default function StudentDashboard() {
               <View style={styles.quickActionIcon}><Ionicons name="calendar-clear" size={24} color="#1e293b" /></View>
               <Text style={styles.quickActionText}>Timetable</Text>
            </TouchableOpacity>
-           <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(student)/chat')}>
-              <View style={styles.quickActionIcon}><Ionicons name="mail" size={24} color="#1e293b" /></View>
-              <Text style={styles.quickActionText}>Messages</Text>
-           </TouchableOpacity>
+
         </ScrollView>
       </ScrollView>
 

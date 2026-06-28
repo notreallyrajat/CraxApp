@@ -30,62 +30,56 @@ const emptyForm = {
   password: '',
 };
 
-// Memoized Teacher Card for performance
-const TeacherCard = React.memo(({ item, onDelete }: { item: Teacher, onDelete: (id: string, name: string) => void }) => (
-  <View style={styles.card}>
-    <View style={styles.cardHeader}>
-      <View style={[styles.avatar, { backgroundColor: '#F3E8FF' }]}>
-        <Text style={[styles.avatarText, { color: '#8B5CF6' }]}>{item.profiles?.full_name.charAt(0).toUpperCase()}</Text>
+// Memoized Teacher Row for performance
+const TeacherRow = React.memo(({ item, onDelete }: { item: Teacher, onDelete: (id: string, name: string) => void }) => {
+  const deptDisplay = (() => {
+    if (!item.department) return null;
+    try {
+      const parsed = JSON.parse(item.department);
+      const deptStr = parsed.dept ? `${parsed.dept}` : '';
+      const subjStr = parsed.expertSubjects && parsed.expertSubjects.length > 0 
+        ? `${parsed.expertSubjects.join(', ')}` 
+        : '';
+      const result = [deptStr, subjStr].filter(Boolean).join(' | ');
+      return result || null;
+    } catch (e) {
+      return item.department === '{"dept":"","expertSubjects":[]}' ? null : item.department;
+    }
+  })();
+
+  return (
+    <View style={styles.row}>
+      <View style={styles.rowAvatarContainer}>
+        <View style={[styles.avatar, { backgroundColor: '#F3E8FF' }]}>
+          <Text style={[styles.avatarText, { color: '#8B5CF6' }]}>{item.profiles?.full_name.charAt(0).toUpperCase()}</Text>
+        </View>
       </View>
-      <View style={styles.headerInfo}>
+      
+      <View style={styles.rowContent}>
         <Text style={styles.teacherName}>{item.profiles?.full_name}</Text>
         <View style={styles.idBadge}>
           <Text style={styles.idText}>ID: {item.employee_id}</Text>
         </View>
+        
+        {item.profiles?.email && (
+          <Text style={styles.infoText} numberOfLines={1}>{item.profiles.email}</Text>
+        )}
+        
+        {deptDisplay && (
+          <Text style={styles.deptText} numberOfLines={1}>{deptDisplay}</Text>
+        )}
       </View>
+      
       <TouchableOpacity 
         style={styles.deleteButton} 
         onPress={() => onDelete(item.id, item.profiles?.full_name || 'Teacher')}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       >
-        <Ionicons name="trash-outline" size={20} color="#EF4444" />
+        <Ionicons name="trash-outline" size={20} color="#94a3b8" />
       </TouchableOpacity>
     </View>
-    
-    <View style={styles.cardContent}>
-      {item.profiles?.email && (
-        <View style={styles.infoRow}>
-          <Ionicons name="mail-outline" size={16} color="#64748b" />
-          <Text style={styles.infoText}>{item.profiles.email}</Text>
-        </View>
-      )}
-      {item.profiles?.phone && (
-        <View style={styles.infoRow}>
-          <Ionicons name="call-outline" size={16} color="#64748b" />
-          <Text style={styles.infoText}>{item.profiles.phone}</Text>
-        </View>
-      )}
-      {item.department && (
-        <View style={styles.infoRow}>
-          <Ionicons name="book-outline" size={16} color="#64748b" />
-          <Text style={styles.infoText}>
-            {(() => {
-              try {
-                const parsed = JSON.parse(item.department);
-                const deptStr = parsed.dept ? `${parsed.dept}` : '';
-                const subjStr = parsed.expertSubjects && parsed.expertSubjects.length > 0 
-                  ? `Expertise: ${parsed.expertSubjects.join(', ')}` 
-                  : '';
-                return [deptStr, subjStr].filter(Boolean).join(' | ') || item.department;
-              } catch (e) {
-                return item.department;
-              }
-            })()}
-          </Text>
-        </View>
-      )}
-    </View>
-  </View>
-));
+  );
+});
 
 export default function TeachersScreen() {
   const router = useRouter();
@@ -346,7 +340,7 @@ export default function TeachersScreen() {
   }, []);
 
   const renderTeacherItem = React.useCallback(({ item }: { item: Teacher }) => (
-    <TeacherCard item={item} onDelete={handleDelete} />
+    <TeacherRow item={item} onDelete={handleDelete} />
   ), [handleDelete]);
 
   const renderFooter = () => {
@@ -363,16 +357,12 @@ export default function TeachersScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={{ marginRight: 16 }}>
-            <Ionicons name="menu" size={32} color="#1e293b" />
+          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
+            <Ionicons name="arrow-back" size={28} color="#1e293b" />
           </TouchableOpacity>
           <View>
-            <Text style={styles.headerSub}>Manage Institution</Text>
             <Text style={styles.headerTitle}>Teachers</Text>
           </View>
-        </View>
-        <View style={styles.badgeContainer}>
-          <Text style={styles.badgeText}>{filteredTeachers.length} Total</Text>
         </View>
       </View>
       
@@ -627,14 +617,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    paddingHorizontal: 20, 
+    paddingHorizontal: 16, 
     paddingTop: Platform.OS === 'ios' ? 60 : 40, 
     paddingBottom: 20 
   },
   headerSub: { fontSize: 14, color: '#64748b', fontWeight: '600', marginBottom: 4 },
   headerTitle: { fontSize: 28, fontWeight: '800', color: '#1e293b', letterSpacing: -0.5 },
-  badgeContainer: { backgroundColor: '#e0e7ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  badgeText: { color: '#3B3D6B', fontSize: 12, fontWeight: '700' },
+  badgeContainer: { backgroundColor: '#f1f5f9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  badgeText: { color: '#475569', fontSize: 12, fontWeight: '700' },
   
   searchContainer: {
     flexDirection: 'row',
@@ -643,13 +633,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     height: 56,
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     marginBottom: 16,
-    shadowColor: '#3B3D6B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, color: '#1e293b', fontSize: 15, fontWeight: '600' },
@@ -659,44 +651,50 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 20, fontWeight: '800', color: '#1e293b', marginTop: 16, marginBottom: 8 },
   emptyText: { fontSize: 14, color: '#64748b', textAlign: 'center', lineHeight: 22 },
   
-  listContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 100 },
-  card: {
+  listContent: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 180 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#3B3D6B',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
-    elevation: 5,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
-  avatar: {
-    width: 48,
-    height: 48,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 12,
     borderRadius: 16,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  rowAvatarContainer: {
+    marginRight: 16,
+    alignSelf: 'flex-start',
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: '#F3E8FF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
-  avatarText: { fontSize: 20, fontWeight: '800', color: '#8B5CF6' },
-  headerInfo: { flex: 1, justifyContent: 'center' },
-  teacherName: { fontSize: 18, fontWeight: '800', color: '#1e293b', marginBottom: 4 },
+  avatarText: { fontSize: 18, fontWeight: '700', color: '#8B5CF6' },
+  rowContent: { flex: 1, justifyContent: 'center' },
+  teacherName: { fontSize: 16, fontWeight: '700', color: '#1e293b', marginBottom: 4 },
   idBadge: {
     alignSelf: 'flex-start',
     backgroundColor: '#f1f5f9',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 4,
   },
-  idText: { fontSize: 12, fontWeight: '700', color: '#64748b' },
-  deleteButton: { padding: 8, backgroundColor: '#FEF2F2', borderRadius: 10, marginLeft: 8 },
-  
-  cardContent: { borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingTop: 16, gap: 10 },
-  infoRow: { flexDirection: 'row', alignItems: 'center' },
-  infoText: { fontSize: 14, color: '#475569', marginLeft: 10, fontWeight: '600' },
+  idText: { fontSize: 11, fontWeight: '600', color: '#64748b' },
+  infoText: { fontSize: 13, color: '#475569', fontWeight: '400', marginBottom: 2 },
+  deptText: { fontSize: 12, color: '#94a3b8', fontWeight: '400' },
+  deleteButton: { padding: 8, marginLeft: 12, alignSelf: 'center' },
   
   fabContainer: { position: 'absolute', bottom: 30, right: 20, alignItems: 'center' },
   fab: {
